@@ -1,4 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.AppCompat.Light.NoActionBar"
-        parent="Theme.AppCompat.Light.NoActionBar"/>
+
+    <style name="Theme.OBD" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">#0D47A1</item>
+        <item name="colorPrimaryDark">#002171</item>
+        <item name="colorAccent">#FF9800</item>
+    </style>
+
 </resources>
