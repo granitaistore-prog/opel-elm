@@ -59,7 +59,8 @@ class MainActivity : AppCompatActivity() {
                         val l100 = elm.fuelL100km()
                         val lph = elm.fuelLph()
 
-                        trip.update(speed, lph)
+                        // 🔧 FIX: Double → Float
+                        trip.update(speed.toFloat(), lph.toFloat())
 
                         // UI
                         rpmView.text = "RPM\n$rpm"
