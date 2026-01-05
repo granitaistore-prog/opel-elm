@@ -1,4 +1,4 @@
-// Root build.gradle (Gradle 8 compatible)
+// Root build.gradle (minimal, Gradle 8 compatible)
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
