@@ -14,27 +14,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: 17
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./gradlew
-
-      # 🔐 Decode keystore (FIXED)
-      - name: Decode release keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      - name: Decode keystore
         run: |
-          echo "$KEYSTORE_BASE64" | tr -d '\r' | base64 -d > app/opel_release.keystore
-
-      # 🧪 OPTIONAL (можеш видалити після першого зеленого білду)
-      # - name: Verify keystore
-      #   env:
-      #     KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      #   run: |
-      #     keytool -list -keystore app/opel_release.keystore -storepass "$KEYSTORE_PASSWORD"
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/opel_release.keystore
 
       - name: Build Release APK
         env:
