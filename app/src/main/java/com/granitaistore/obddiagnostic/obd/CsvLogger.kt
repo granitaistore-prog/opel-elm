@@ -1,40 +1,48 @@
-
 package com.granitaistore.obddiagnostic.obd
 
 import android.content.Context
+import android.os.Environment
 import java.io.File
+import java.io.FileWriter
 import java.text.SimpleDateFormat
 import java.util.*
 
 class CsvLogger(private val context: Context) {
 
-    private val sdf = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
-    private var file: File? = null
+    private var writer: FileWriter? = null
 
     fun start() {
-        val name = "trip_${sdf.format(Date())}.csv"
-        file = File(context.getExternalFilesDir(null), name)
-        file?.writeText("time,rpm,speed,temp,maf,lph,l100km,stft,ltft\n")
+        val dir = File(
+            Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOCUMENTS
+            ), "OBD"
+        )
+        if (!dir.exists()) dir.mkdirs()
+
+        val fileName = "log_" + SimpleDateFormat("yyyyMMdd_HHmmss")
+            .format(Date()) + ".csv"
+
+        val file = File(dir, fileName)
+        writer = FileWriter(file)
+        writer?.append("time,rpm,speed,temp,lph,l100\n")
     }
 
     fun log(
         rpm: Int,
         speed: Int,
         temp: Int,
-        maf: Double,
-        lph: Double,
-        l100: Double,
-        stft: Double,
-        ltft: Double
+        lph: Float,
+        l100: Float
     ) {
-        val line = "${System.currentTimeMillis()},$rpm,$speed,$temp," +
-                "${"%.2f".format(maf)}," +
-                "${"%.2f".format(lph)}," +
-                "${"%.2f".format(l100)}," +
-                "${"%.1f".format(stft)}," +
-                "${"%.1f".format(ltft)}\n"
-        file?.appendText(line)
+        val time = System.currentTimeMillis()
+        writer?.append(
+            "$time,$rpm,$speed,$temp,$lph,$l100\n"
+        )
+        writer?.flush()
     }
 
-    fun stop() { file = null }
+    fun stop() {
+        writer?.close()
+        writer = null
+    }
 }
