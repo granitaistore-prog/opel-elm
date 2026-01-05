@@ -1,1 +1,8 @@
-// Root build.gradle – intentionally empty
+signingConfigs {
+    release {
+        storeFile file("opel_release.keystore")
+        storePassword System.getenv("KEYSTORE_PASSWORD")
+        keyAlias System.getenv("KEY_ALIAS")
+        keyPassword System.getenv("KEY_PASSWORD")
+    }
+}
