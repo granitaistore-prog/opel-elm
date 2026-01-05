@@ -32,8 +32,12 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 --decode > app/opel_release.keystore
 
-      # 5️⃣ Build RELEASE
+      # 5️⃣ Build RELEASE APK (WITH ENV)
       - name: Build Release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: ./gradlew :app:assembleRelease
 
       # 6️⃣ Upload APK
