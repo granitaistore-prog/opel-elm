@@ -1,94 +1,104 @@
 <?xml version="1.0" encoding="utf-8"?>
-<GridLayout
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:columnCount="2"
+    android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- RPM -->
-    <TextView
-        android:id="@+id/rpm"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_columnWeight="1"
-        android:text="RPM\n0"
-        android:textSize="24sp"
-        android:gravity="center"/>
-
-    <!-- SPEED -->
-    <TextView
-        android:id="@+id/speed"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_columnWeight="1"
-        android:text="SPEED\n0"
-        android:textSize="24sp"
-        android:gravity="center"/>
-
-    <!-- TEMP -->
-    <TextView
-        android:id="@+id/temp"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_columnWeight="1"
-        android:text="TEMP\n0°C"
-        android:textSize="24sp"
-        android:gravity="center"/>
-
-    <!-- FUEL -->
-    <TextView
-        android:id="@+id/fuel"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_columnWeight="1"
-        android:text="FUEL\n0.0 L/100km"
-        android:textSize="24sp"
-        android:gravity="center"/>
-
-    <!-- TRIP -->
-    <TextView
-        android:id="@+id/trip"
+    <GridLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_columnSpan="2"
-        android:text="TRIP\n0 km | 0.0 L/100km"
-        android:textSize="20sp"
-        android:gravity="center"
-        android:paddingTop="12dp"/>
+        android:columnCount="2">
 
-    <!-- START LOG -->
+        <!-- RPM -->
+        <TextView
+            android:id="@+id/rpm"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:text="RPM\n0"
+            android:textSize="24sp"
+            android:gravity="center"/>
+
+        <!-- SPEED -->
+        <TextView
+            android:id="@+id/speed"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:text="SPEED\n0"
+            android:textSize="24sp"
+            android:gravity="center"/>
+
+        <!-- TEMP -->
+        <TextView
+            android:id="@+id/temp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:text="TEMP\n0°C"
+            android:textSize="24sp"
+            android:gravity="center"/>
+
+        <!-- FUEL -->
+        <TextView
+            android:id="@+id/fuel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:text="FUEL\n0.0 L/100km"
+            android:textSize="24sp"
+            android:gravity="center"/>
+
+        <!-- TRIP -->
+        <TextView
+            android:id="@+id/trip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_columnSpan="2"
+            android:text="TRIP\n0 km | 0.0 L/100km"
+            android:textSize="20sp"
+            android:gravity="center"
+            android:paddingTop="12dp"/>
+
+        <!-- START LOG -->
+        <Button
+            android:id="@+id/startLogBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_columnSpan="2"
+            android:text="Start LOG"
+            android:layout_marginTop="12dp"/>
+
+        <!-- STOP LOG -->
+        <Button
+            android:id="@+id/stopLogBtn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_columnSpan="2"
+            android:text="Stop LOG"/>
+
+    </GridLayout>
+
+    <!-- ELM + DTC -->
     <Button
-        android:id="@+id/startLogBtn"
+        android:id="@+id/btnSelectElm"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_columnSpan="2"
-        android:text="Start LOG"
+        android:text="Select ELM327"
         android:layout_marginTop="12dp"/>
 
-    <!-- STOP LOG -->
     <Button
-        android:id="@+id/stopLogBtn"
+        android:id="@+id/btnReadDtc"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_columnSpan="2"
-        android:text="Stop LOG"/>
+        android:text="Read DTC"/>
 
-</GridLayout>
-<Button
-    android:id="@+id/btnSelectElm"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="Select ELM327"/>
+    <Button
+        android:id="@+id/btnClearDtc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Clear DTC"/>
 
-<Button
-    android:id="@+id/btnReadDtc"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="Read DTC"/>
-
-<Button
-    android:id="@+id/btnClearDtc"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="Clear DTC"/>
+</LinearLayout>
