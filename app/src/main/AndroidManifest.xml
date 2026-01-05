@@ -9,7 +9,7 @@
     <application
         android:allowBackup="true"
         android:label="OBD Diagnostic"
-        android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
+        android:theme="@style/Theme.OpelElm"
 
         <activity
             android:name=".MainActivity"
