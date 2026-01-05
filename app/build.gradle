@@ -15,24 +15,22 @@ android {
         versionName "1.0"
     }
 
-    // ✅ Java 17
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
 
-    // ✅ Kotlin 17
     kotlinOptions {
         jvmTarget = "17"
     }
 
-    // 🔐 RELEASE ПІДПИС (GitHub Secrets)
     signingConfigs {
         release {
             storeFile file("opel_release.keystore")
             storePassword System.getenv("KEYSTORE_PASSWORD")
             keyAlias System.getenv("KEY_ALIAS")
             keyPassword System.getenv("KEY_PASSWORD")
+            storeType "JKS"
         }
     }
 
@@ -46,17 +44,11 @@ android {
             signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
-
-            // 🔧 ЯКЩО ХОЧЕШ СТАВИТИ ПОРУЧ ІЗ DEBUG — РОЗКОМЕНТУЙ
-            // applicationIdSuffix ".release"
-            // versionNameSuffix "-release"
         }
     }
 }
 
 dependencies {
     implementation "androidx.appcompat:appcompat:1.6.1"
-
-    // 📊 Графіки
     implementation "com.github.PhilJay:MPAndroidChart:v3.1.0"
 }
