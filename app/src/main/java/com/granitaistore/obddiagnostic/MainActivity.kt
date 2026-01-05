@@ -33,7 +33,23 @@ class MainActivity : AppCompatActivity() {
         stopLogBtn = findViewById(R.id.stopLogBtn)
 
         val logger = CsvLogger(this)
-        val trip = TripManager()
+        val trip = TripManager()val chooser = BluetoothChooser(this)
+
+btnSelectElm.setOnClickListener {
+    chooser.show { device ->
+        bt.connect(device)
+    }
+}
+
+btnReadDtc.setOnClickListener {
+    val dtc = elm.readDTC()
+    resultView.text = if (dtc.isEmpty()) "No errors" else dtc.joinToString("\n")
+}
+
+btnClearDtc.setOnClickListener {
+    val ok = elm.clearDTC()
+    resultView.text = if (ok) "DTC cleared" else "Failed"
+}
 
         startLogBtn.setOnClickListener { logger.start() }
         stopLogBtn.setOnClickListener { logger.stop() }
