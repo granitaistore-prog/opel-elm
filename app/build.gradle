@@ -11,28 +11,28 @@ android {
         applicationId "com.granitaistore.obddiagnostic"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.1"
     }
 
-    // 🔥 ВАЖЛИВО: робимо UNIVERSAL APK (без split)
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    // ❗ ВАЖЛИВО: ВИМИКАЄМО SPLIT APK
     splits {
         abi {
             enable false
         }
         density {
             enable false
-        }
-    }
-
-    buildTypes {
-        debug {
-            minifyEnabled false
-            shrinkResources false
-        }
-        release {
-            minifyEnabled false
-            shrinkResources false
         }
     }
 
