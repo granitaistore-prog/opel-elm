@@ -15,8 +15,6 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url "https://jitpack.io" }
     }
 }
-
-rootProject.name = "obd-diagnostic-v2"
-include(":app")
