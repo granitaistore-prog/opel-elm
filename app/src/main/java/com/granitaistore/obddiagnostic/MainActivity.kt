@@ -33,16 +33,21 @@ class MainActivity : AppCompatActivity() {
         startLogBtn = findViewById(R.id.startLogBtn)
         stopLogBtn = findViewById(R.id.stopLogBtn)
 
-        // ===== OBD =====
-        val bt = BluetoothService() // заглушка
-        val elm = Elm327Manager(bt)
-        val trip = TripManager()
         val logger = CsvLogger(this)
+        val trip = TripManager()
 
         startLogBtn.setOnClickListener { logger.start() }
         stopLogBtn.setOnClickListener { logger.stop() }
 
+        // ===== BACKGROUND THREAD =====
         Thread {
+            val bt = BluetoothService()
+
+            if (!bt.connect()) {
+                return@Thread
+            }
+
+            val elm = Elm327Manager(bt)
             elm.initOpel()
 
             handler.post(object : Runnable {
@@ -56,14 +61,19 @@ class MainActivity : AppCompatActivity() {
 
                         trip.update(speed, lph)
 
+                        // UI
                         rpmView.text = "RPM\n$rpm"
                         speedView.text = "SPEED\n$speed"
                         tempView.text = "TEMP\n$temp°C"
                         fuelView.text = "FUEL\n%.1f L/100km".format(l100)
-                        tripView.text = "TRIP\n%.1f km | %.1f L/100km"
-                            .format(trip.distance(), trip.avgFuel())
+                        tripView.text =
+                            "TRIP\n%.1f km | %.1f L/100km"
+                                .format(trip.distance(), trip.avgFuel())
 
-                    } catch (_: Exception) { }
+                        // CSV LOG ⭐
+                        logger.log(rpm, speed, temp, lph, l100)
+
+                    } catch (_: Exception) {}
 
                     handler.postDelayed(this, 1000)
                 }
