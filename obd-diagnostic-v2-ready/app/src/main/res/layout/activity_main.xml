@@ -1,0 +1,15 @@
+
+<GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:columnCount="2"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <TextView android:id="@+id/fuel"
+        android:text="FUEL"
+        android:textSize="24sp"/>
+
+    <TextView android:id="@+id/trip"
+        android:text="TRIP"
+        android:textSize="20sp"/>
+</GridLayout>
