@@ -75,8 +75,8 @@ class MainActivity : AppCompatActivity() {
                             rpm,
                             speed,
                             temp,
-                            fuelLph,
-                            fuelL100
+                            fuelLph.toFloat(),
+                            fuelL100.toFloat()
                         )
 
                     } catch (_: Exception) {
