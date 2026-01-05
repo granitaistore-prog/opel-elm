@@ -30,25 +30,14 @@ android {
             storePassword System.getenv("KEYSTORE_PASSWORD")
             keyAlias System.getenv("KEY_ALIAS")
             keyPassword System.getenv("KEY_PASSWORD")
-            storeType "JKS"
         }
     }
 
     buildTypes {
-        debug {
-            minifyEnabled false
-            debuggable true
-        }
-
         release {
             signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
         }
     }
-}
-
-dependencies {
-    implementation "androidx.appcompat:appcompat:1.6.1"
-    implementation "com.github.PhilJay:MPAndroidChart:v3.1.0"
 }
