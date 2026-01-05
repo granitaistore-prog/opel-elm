@@ -24,7 +24,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // ===== Views =====
         rpmView = findViewById(R.id.rpm)
         speedView = findViewById(R.id.speed)
         tempView = findViewById(R.id.temp)
@@ -39,13 +38,9 @@ class MainActivity : AppCompatActivity() {
         startLogBtn.setOnClickListener { logger.start() }
         stopLogBtn.setOnClickListener { logger.stop() }
 
-        // ===== BACKGROUND THREAD =====
         Thread {
             val bt = BluetoothService()
-
-            if (!bt.connect()) {
-                return@Thread
-            }
+            if (!bt.connect()) return@Thread
 
             val elm = Elm327Manager(bt)
             elm.initOpel()
@@ -53,28 +48,39 @@ class MainActivity : AppCompatActivity() {
             handler.post(object : Runnable {
                 override fun run() {
                     try {
-                        val rpm = elm.rpm()
-                        val speed = elm.speed()
-                        val temp = elm.coolantTemp()
-                        val l100 = elm.fuelL100km()
-                        val lph = elm.fuelLph()
+                        // === ЯВНІ ТИПИ ===
+                        val rpm: Int = elm.rpm()
+                        val speed: Int = elm.speed()
+                        val temp: Int = elm.coolantTemp()
 
-                        // 🔧 FIX: Double → Float
-                        trip.update(speed.toFloat(), lph.toFloat())
+                        val fuelL100: Double = elm.fuelL100km()
+                        val fuelLph: Double = elm.fuelLph()
+
+                        // TripManager очікує (Int, Double)
+                        trip.update(speed, fuelLph)
 
                         // UI
                         rpmView.text = "RPM\n$rpm"
                         speedView.text = "SPEED\n$speed"
                         tempView.text = "TEMP\n$temp°C"
-                        fuelView.text = "FUEL\n%.1f L/100km".format(l100)
+                        fuelView.text =
+                            "FUEL\n%.1f L/100km".format(fuelL100)
+
                         tripView.text =
                             "TRIP\n%.1f km | %.1f L/100km"
                                 .format(trip.distance(), trip.avgFuel())
 
-                        // CSV LOG ⭐
-                        logger.log(rpm, speed, temp, lph, l100)
+                        // CSV
+                        logger.log(
+                            rpm,
+                            speed,
+                            temp,
+                            fuelLph,
+                            fuelL100
+                        )
 
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
 
                     handler.postDelayed(this, 1000)
                 }
