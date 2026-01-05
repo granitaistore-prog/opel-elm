@@ -75,3 +75,20 @@
         android:text="Stop LOG"/>
 
 </GridLayout>
+<Button
+    android:id="@+id/btnSelectElm"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="Select ELM327"/>
+
+<Button
+    android:id="@+id/btnReadDtc"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="Read DTC"/>
+
+<Button
+    android:id="@+id/btnClearDtc"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:text="Clear DTC"/>
