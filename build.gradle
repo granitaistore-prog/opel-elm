@@ -1,4 +1,13 @@
-// Root build.gradle (minimal, Gradle 8 compatible)
+// Root build.gradle (Gradle 8.x compatible)
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url "https://repo1.maven.org/maven2" }
+        gradlePluginPortal()
+    }
+}
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
