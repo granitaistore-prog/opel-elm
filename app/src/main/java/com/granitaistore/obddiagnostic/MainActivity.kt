@@ -10,7 +10,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnSelectElm: Button
     private lateinit var btnReadDtc: Button
     private lateinit var btnClearDtc: Button
-    private lateinit var resultView: TextView
+    private lateinit var trip: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -19,14 +19,14 @@ class MainActivity : AppCompatActivity() {
         btnSelectElm = findViewById(R.id.btnSelectElm)
         btnReadDtc = findViewById(R.id.btnReadDtc)
         btnClearDtc = findViewById(R.id.btnClearDtc)
-        resultView = findViewById(R.id.resultView)
+        trip = findViewById(R.id.trip)
 
         btnReadDtc.setOnClickListener {
             resultView.text = "Read DTC (stub)"
         }
 
         btnClearDtc.setOnClickListener {
-            resultView.text = "Clear DTC (stub)"
+            trip.text = "Read DTC (stub)"
         }
     }
 }
