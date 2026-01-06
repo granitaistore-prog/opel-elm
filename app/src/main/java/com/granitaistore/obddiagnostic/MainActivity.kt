@@ -22,11 +22,11 @@ class MainActivity : AppCompatActivity() {
         resultView = findViewById(R.id.resultView)
 
         btnReadDtc.setOnClickListener {
-            resultView.text = "DTC read (stub)"
+            resultView.text = "Read DTC (stub)"
         }
 
         btnClearDtc.setOnClickListener {
-            resultView.text = "DTC cleared (stub)"
+            resultView.text = "Clear DTC (stub)"
         }
     }
 }
