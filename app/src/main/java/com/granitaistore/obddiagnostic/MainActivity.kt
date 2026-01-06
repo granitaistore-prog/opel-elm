@@ -22,11 +22,11 @@ class MainActivity : AppCompatActivity() {
         trip = findViewById(R.id.trip)
 
         btnReadDtc.setOnClickListener {
-            resultView.text = "Read DTC (stub)"
+            trip.text = "Read DTC (stub)"
         }
 
         btnClearDtc.setOnClickListener {
-            trip.text = "Read DTC (stub)"
+            trip.text = "Clear DTC (stub)"
         }
     }
 }
