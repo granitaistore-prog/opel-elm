@@ -24,13 +24,16 @@ jobs:
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/opel_release.keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/opel-release.jks
+
+      - name: Create gradle.properties for signing
+        run: |
+          echo "RELEASE_STORE_FILE=opel-release.jks" >> app/gradle.properties
+          echo "RELEASE_STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> app/gradle.properties
+          echo "RELEASE_KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> app/gradle.properties
+          echo "RELEASE_KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> app/gradle.properties
 
       - name: Build Release APK
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: ./gradlew :app:assembleRelease
 
       - name: Upload Release APK
