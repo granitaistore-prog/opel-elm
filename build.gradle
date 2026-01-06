@@ -1,17 +1,4 @@
-buildscript {
-    repositories {
-        google()
-        maven { url "https://repo1.maven.org/maven2" }
-    }
-    dependencies {
-        classpath "com.android.tools.build:gradle:8.2.2"
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"
-    }
-}
-
-allprojects {
-    repositories {
-        google()
-        maven { url "https://repo1.maven.org/maven2" }
-    }
+// Root build.gradle (Gradle 8 compatible)
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
 }
