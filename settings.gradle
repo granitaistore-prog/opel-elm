@@ -1,23 +1,22 @@
 pluginManagement {
     repositories {
         google()
-        mavenCentral()
+        maven {
+            url = uri("https://repo.maven.apache.org/maven2")
+        }
         gradlePluginPortal()
-    }
-    plugins {
-        id "com.android.application" version "8.2.2"
-        id "org.jetbrains.kotlin.android" version "1.9.22"
     }
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
-        mavenCentral()
+        maven {
+            url = uri("https://repo.maven.apache.org/maven2")
+        }
     }
 }
 
 rootProject.name = "opel-elm"
-
 include(":app")

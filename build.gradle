@@ -1,14 +1,21 @@
-// Root build.gradle (Gradle 8.x compatible)
-
 buildscript {
     repositories {
         google()
-        mavenCentral()
-        maven { url "https://repo1.maven.org/maven2" }
-        gradlePluginPortal()
+        maven {
+            url = uri("https://repo.maven.apache.org/maven2")
+        }
+    }
+    dependencies {
+        classpath "com.android.tools.build:gradle:8.2.2"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"
     }
 }
 
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
+allprojects {
+    repositories {
+        google()
+        maven {
+            url = uri("https://repo.maven.apache.org/maven2")
+        }
+    }
 }
