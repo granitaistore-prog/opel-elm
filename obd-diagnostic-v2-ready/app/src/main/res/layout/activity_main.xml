@@ -1,15 +1,78 @@
-
-<GridLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:columnCount="2"
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <TextView android:id="@+id/fuel"
-        android:text="FUEL"
-        android:textSize="24sp"/>
+    <!-- RPM -->
+    <TextView
+        android:id="@+id/rpm"
+        android:text="RPM\n0"
+        android:textSize="24sp"
+        android:gravity="center"/>
 
-    <TextView android:id="@+id/trip"
+    <ProgressBar
+        android:id="@+id/rpmGauge"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:max="8000"
+        android:layout_width="match_parent"
+        android:layout_height="16dp"/>
+
+    <!-- SPEED -->
+    <TextView
+        android:id="@+id/speed"
+        android:text="SPEED\n0"
+        android:textSize="24sp"
+        android:gravity="center"
+        android:layout_marginTop="12dp"/>
+
+    <ProgressBar
+        android:id="@+id/speedGauge"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:max="240"
+        android:layout_width="match_parent"
+        android:layout_height="16dp"/>
+
+    <!-- TRIP -->
+    <TextView
+        android:id="@+id/trip"
         android:text="TRIP"
-        android:textSize="20sp"/>
-</GridLayout>
+        android:textSize="18sp"
+        android:gravity="center"
+        android:layout_marginTop="12dp"/>
+
+    <!-- LOG -->
+    <Button
+        android:id="@+id/startLogBtn"
+        android:text="Start LOG"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/stopLogBtn"
+        android:text="Stop LOG"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <!-- ELM / DTC -->
+    <Button
+        android:id="@+id/btnSelectElm"
+        android:text="Select ELM327"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/btnReadDtc"
+        android:text="Read DTC"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/btnClearDtc"
+        android:text="Clear DTC"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+</LinearLayout>
