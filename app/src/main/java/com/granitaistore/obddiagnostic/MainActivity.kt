@@ -1,120 +1,80 @@
 package com.granitaistore.obddiagnostic
 
-import android.Manifest
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothSocket
-import android.content.pm.PackageManager
 import android.os.Bundle
-import android.widget.*
-import androidx.appcompat.app.AlertDialog
+import android.os.Handler
+import android.os.Looper
+import android.widget.Button
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import kotlinx.coroutines.*
-import java.io.File
-import java.util.UUID
+import kotlin.random.Random
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var rpmView: TextView
-    private lateinit var speedView: TextView
-    private lateinit var tripView: TextView
+    private lateinit var rpmText: TextView
+    private lateinit var speedText: TextView
     private lateinit var rpmGauge: ProgressBar
     private lateinit var speedGauge: ProgressBar
-    private lateinit var startLogBtn: Button
-    private lateinit var stopLogBtn: Button
-    private lateinit var btnSelectElm: Button
-    private lateinit var btnReadDtc: Button
-    private lateinit var btnClearDtc: Button
 
-    private val btAdapter = BluetoothAdapter.getDefaultAdapter()
-    private lateinit var lastDevice: BluetoothDevice
-
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var liveRunning = false
+    private val handler = Handler(Looper.getMainLooper())
+    private var running = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        bindUi()
-        checkPermissions()
-
-        btnSelectElm.setOnClickListener { showElmPicker() }
-
-        startLogBtn.setOnClickListener {
-            liveRunning = true
-            startFakeLoop()
-        }
-
-        stopLogBtn.setOnClickListener {
-            liveRunning = false
-        }
-    }
-
-    private fun bindUi() {
-        rpmView = findViewById(R.id.rpm)
-        speedView = findViewById(R.id.speed)
-        tripView = findViewById(R.id.trip)
+        rpmText = findViewById(R.id.rpm)
+        speedText = findViewById(R.id.speed)
         rpmGauge = findViewById(R.id.rpmGauge)
         speedGauge = findViewById(R.id.speedGauge)
-        startLogBtn = findViewById(R.id.startLogBtn)
-        stopLogBtn = findViewById(R.id.stopLogBtn)
-        btnSelectElm = findViewById(R.id.btnSelectElm)
-        btnReadDtc = findViewById(R.id.btnReadDtc)
-        btnClearDtc = findViewById(R.id.btnClearDtc)
-    }
 
-    private fun checkPermissions() {
-        val perms = arrayOf(
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.BLUETOOTH_SCAN
-        )
-
-        if (perms.any {
-                ActivityCompat.checkSelfPermission(this, it)
-                        != PackageManager.PERMISSION_GRANTED
-            }) {
-            ActivityCompat.requestPermissions(this, perms, 100)
-        }
-    }
-
-    private fun showElmPicker() {
-        val devices = btAdapter.bondedDevices.toList()
-        if (devices.isEmpty()) {
-            toast("No paired devices")
-            return
+        findViewById<Button>(R.id.startLogBtn).setOnClickListener {
+            startFakeLoop()
+            toast("LOG started")
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Select ELM327")
-            .setItems(devices.map { it.name }.toTypedArray()) { _, i ->
-                lastDevice = devices[i]
-                toast("Selected ${lastDevice.name}")
-            }
-            .show()
+        findViewById<Button>(R.id.stopLogBtn).setOnClickListener {
+            running = false
+            toast("LOG stopped")
+        }
+
+        findViewById<Button>(R.id.btnSelectElm).setOnClickListener {
+            toast("ELM327 select (stub)")
+        }
+
+        findViewById<Button>(R.id.btnReadDtc).setOnClickListener {
+            toast("Read DTC (stub)")
+        }
+
+        findViewById<Button>(R.id.btnClearDtc).setOnClickListener {
+            toast("Clear DTC (stub)")
+        }
     }
 
     private fun startFakeLoop() {
-        scope.launch {
-            while (liveRunning) {
-                val rpm = (800..3500).random()
-                val speed = (0..140).random()
+        if (running) return
+        running = true
 
-                withContext(Dispatchers.Main) {
-                    rpmView.text = "RPM\n$rpm"
-                    speedView.text = "SPEED\n$speed"
-                    rpmGauge.progress = rpm
-                    speedGauge.progress = speed
-                }
-                delay(500)
+        handler.post(object : Runnable {
+            override fun run() {
+                if (!running) return
+
+                val rpm = Random.nextInt(700, 5000)
+                val speed = Random.nextInt(0, 160)
+
+                rpmText.text = "RPM\n$rpm"
+                speedText.text = "SPEED\n$speed"
+
+                rpmGauge.progress = rpm
+                speedGauge.progress = speed
+
+                handler.postDelayed(this, 800)
             }
-        }
+        })
     }
 
     private fun toast(msg: String) {
-        runOnUiThread {
-            Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-        }
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
     }
 }
