@@ -1,36 +1,5 @@
 package com.granitaistore.obddiagnostic
 
-import android.os.Bundle
-import android.widget.Button
-import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-
-class MainActivity : AppCompatActivity() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        val btnSelectElm = findViewById<Button>(R.id.btnSelectElm)
-        val btnReadDtc = findViewById<Button>(R.id.btnReadDtc)
-        val btnClearDtc = findViewById<Button>(R.id.btnClearDtc)
-        val trip = findViewById<TextView>(R.id.trip)
-
-        btnSelectElm.setOnClickListener {
-            trip.text = "Select ELM327 (stub)"
-        }
-
-        btnReadDtc.setOnClickListener {
-            trip.text = "Read DTC (stub)"
-        }
-
-        btnClearDtc.setOnClickListener {
-            trip.text = "Clear DTC (stub)"
-        }
-    }
-}
-package com.granitaistore.obddiagnostic
-
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
@@ -61,7 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnReadDtc: Button
     private lateinit var btnClearDtc: Button
 
-    // ===== Bluetooth / ELM =====
+    // ===== Bluetooth =====
     private val btAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
     private lateinit var socket: BluetoothSocket
     private lateinit var input: InputStream
@@ -78,13 +47,10 @@ class MainActivity : AppCompatActivity() {
     // ===== CSV =====
     private lateinit var csvFile: File
 
-    // ===== Permissions =====
     private val BT_PERMS = arrayOf(
         Manifest.permission.BLUETOOTH_CONNECT,
         Manifest.permission.BLUETOOTH_SCAN
     )
-
-    // =========================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -119,8 +85,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // =========================================================
-    // UI
+    // ===== UI =====
     private fun bindUi() {
         rpmView = findViewById(R.id.rpm)
         speedView = findViewById(R.id.speed)
@@ -134,8 +99,7 @@ class MainActivity : AppCompatActivity() {
         btnClearDtc = findViewById(R.id.btnClearDtc)
     }
 
-    // =========================================================
-    // Permissions
+    // ===== Permissions =====
     private fun checkPermissions() {
         if (BT_PERMS.any {
                 ActivityCompat.checkSelfPermission(this, it)
@@ -145,8 +109,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // =========================================================
-    // Bluetooth picker
+    // ===== Picker =====
     private fun showElmPicker() {
         val devices = btAdapter.bondedDevices.toList()
         if (devices.isEmpty()) {
@@ -165,17 +128,14 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // =========================================================
-    // Connect
+    // ===== Connect =====
     private fun connectToElm(device: BluetoothDevice) {
         obdScope.launch {
             try {
                 socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
                 socket.connect()
-
                 input = socket.inputStream
                 output = socket.outputStream
-
                 initElm()
 
                 withContext(Dispatchers.Main) {
@@ -195,8 +155,7 @@ class MainActivity : AppCompatActivity() {
         connectToElm(lastDevice)
     }
 
-    // =========================================================
-    // ELM
+    // ===== ELM =====
     private fun initElm() {
         send("ATZ")
         send("ATE0")
@@ -214,8 +173,7 @@ class MainActivity : AppCompatActivity() {
         return String(buf, 0, len)
     }
 
-    // =========================================================
-    // LIVE LOOP
+    // ===== Live =====
     private fun startLiveLoop() {
         if (!::output.isInitialized) {
             toast("Connect ELM first")
@@ -236,7 +194,6 @@ class MainActivity : AppCompatActivity() {
                         rpmGauge.progress = rpm
                         speedGauge.progress = speed
                     }
-
                     delay(500)
                 } catch (e: Exception) {
                     reconnect()
@@ -249,8 +206,7 @@ class MainActivity : AppCompatActivity() {
         liveRunning = false
     }
 
-    // =========================================================
-    // PID
+    // ===== PID =====
     private fun readRpm(): Int {
         val r = send("010C").replace(" ", "")
         val d = r.substringAfter("410C")
@@ -272,8 +228,7 @@ class MainActivity : AppCompatActivity() {
             .map { "P$it" }
     }
 
-    // =========================================================
-    // CSV
+    // ===== CSV =====
     private fun initCsv() {
         val dir = File(getExternalFilesDir(null), "logs")
         if (!dir.exists()) dir.mkdirs()
@@ -286,7 +241,6 @@ class MainActivity : AppCompatActivity() {
         csvFile.appendText("${System.currentTimeMillis()},$rpm,$speed\n")
     }
 
-    // =========================================================
     private fun toast(msg: String) {
         runOnUiThread {
             Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
