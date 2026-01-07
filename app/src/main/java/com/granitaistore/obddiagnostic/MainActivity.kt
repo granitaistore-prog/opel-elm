@@ -18,7 +18,6 @@ import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
-    // ===== UI =====
     private lateinit var rpmView: TextView
     private lateinit var speedView: TextView
     private lateinit var tripView: TextView
@@ -30,8 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnReadDtc: Button
     private lateinit var btnClearDtc: Button
 
-    // ===== Bluetooth =====
-    private val btAdapter: BluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+    private val btAdapter = BluetoothAdapter.getDefaultAdapter()
     private lateinit var socket: BluetoothSocket
     private lateinit var input: InputStream
     private lateinit var output: OutputStream
@@ -40,11 +38,9 @@ class MainActivity : AppCompatActivity() {
     private val SPP_UUID =
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
-    // ===== Coroutine =====
-    private val obdScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var liveRunning = false
 
-    // ===== CSV =====
     private lateinit var csvFile: File
 
     private val BT_PERMS = arrayOf(
@@ -67,25 +63,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         stopLogBtn.setOnClickListener {
-            stopLiveLoop()
-        }
-
-        btnReadDtc.setOnClickListener {
-            obdScope.launch {
-                val dtc = readDtc()
-                withContext(Dispatchers.Main) {
-                    tripView.text = dtc.joinToString("\n")
-                }
-            }
-        }
-
-        btnClearDtc.setOnClickListener {
-            send("04")
-            tripView.text = "DTC cleared"
+            liveRunning = false
         }
     }
 
-    // ===== UI =====
     private fun bindUi() {
         rpmView = findViewById(R.id.rpm)
         speedView = findViewById(R.id.speed)
@@ -99,81 +80,49 @@ class MainActivity : AppCompatActivity() {
         btnClearDtc = findViewById(R.id.btnClearDtc)
     }
 
-    // ===== Permissions =====
     private fun checkPermissions() {
         if (BT_PERMS.any {
                 ActivityCompat.checkSelfPermission(this, it)
                         != PackageManager.PERMISSION_GRANTED
             }) {
-            ActivityCompat.requestPermissions(this, BT_PERMS, 101)
+            ActivityCompat.requestPermissions(this, BT_PERMS, 100)
         }
     }
 
-    // ===== Picker =====
     private fun showElmPicker() {
         val devices = btAdapter.bondedDevices.toList()
         if (devices.isEmpty()) {
-            toast("No paired ELM devices")
+            toast("No paired devices")
             return
         }
 
-        val names = devices.map { "${it.name}\n${it.address}" }
-
         AlertDialog.Builder(this)
             .setTitle("Select ELM327")
-            .setItems(names.toTypedArray()) { _, i ->
+            .setItems(devices.map { it.name }.toTypedArray()) { _, i ->
                 lastDevice = devices[i]
                 connectToElm(lastDevice)
             }
             .show()
     }
 
-    // ===== Connect =====
     private fun connectToElm(device: BluetoothDevice) {
-        obdScope.launch {
+        scope.launch {
             try {
                 socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
                 socket.connect()
                 input = socket.inputStream
                 output = socket.outputStream
-                initElm()
-
                 withContext(Dispatchers.Main) {
-                    toast("Connected: ${device.name}")
+                    toast("Connected")
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    toast("ELM connection failed")
+                    toast("Connect failed")
                 }
             }
         }
     }
 
-    private fun reconnect() {
-        try { socket.close() } catch (_: Exception) {}
-        Thread.sleep(1000)
-        connectToElm(lastDevice)
-    }
-
-    // ===== ELM =====
-    private fun initElm() {
-        send("ATZ")
-        send("ATE0")
-        send("ATL0")
-        send("ATS0")
-        send("ATH0")
-        send("ATSP0")
-    }
-
-    private fun send(cmd: String): String {
-        output.write((cmd + "\r").toByteArray())
-        Thread.sleep(150)
-        val buf = ByteArray(1024)
-        val len = input.read(buf)
-        return String(buf, 0, len)
-    }
-
-    // ===== Live =====
     private fun startLiveLoop() {
         if (!::output.isInitialized) {
             toast("Connect ELM first")
@@ -181,64 +130,26 @@ class MainActivity : AppCompatActivity() {
         }
 
         liveRunning = true
-        obdScope.launch {
+        scope.launch {
             while (liveRunning) {
-                try {
-                    val rpm = readRpm()
-                    val speed = readSpeed()
-                    logCsv(rpm, speed)
+                val rpm = (1000..3000).random()
+                val speed = (0..120).random()
 
-                    withContext(Dispatchers.Main) {
-                        rpmView.text = "RPM\n$rpm"
-                        speedView.text = "SPEED\n$speed"
-                        rpmGauge.progress = rpm
-                        speedGauge.progress = speed
-                    }
-                    delay(500)
-                } catch (e: Exception) {
-                    reconnect()
+                withContext(Dispatchers.Main) {
+                    rpmView.text = "RPM\n$rpm"
+                    speedView.text = "SPEED\n$speed"
+                    rpmGauge.progress = rpm
+                    speedGauge.progress = speed
                 }
+                delay(500)
             }
         }
     }
 
-    private fun stopLiveLoop() {
-        liveRunning = false
-    }
-
-    // ===== PID =====
-    private fun readRpm(): Int {
-        val r = send("010C").replace(" ", "")
-        val d = r.substringAfter("410C")
-        val A = d.substring(0, 2).toInt(16)
-        val B = d.substring(2, 4).toInt(16)
-        return ((A * 256) + B) / 4
-    }
-
-    private fun readSpeed(): Int {
-        val r = send("010D").replace(" ", "")
-        return r.substringAfter("410D").toInt(16)
-    }
-
-    private fun readDtc(): List<String> {
-        val r = send("03").replace(" ", "")
-        val data = r.substringAfter("43")
-        return data.chunked(4)
-            .filter { it != "0000" }
-            .map { "P$it" }
-    }
-
-    // ===== CSV =====
     private fun initCsv() {
         val dir = File(getExternalFilesDir(null), "logs")
         if (!dir.exists()) dir.mkdirs()
-
-        csvFile = File(dir, "obd_${System.currentTimeMillis()}.csv")
-        csvFile.appendText("time,rpm,speed\n")
-    }
-
-    private fun logCsv(rpm: Int, speed: Int) {
-        csvFile.appendText("${System.currentTimeMillis()},$rpm,$speed\n")
+        csvFile = File(dir, "log.csv")
     }
 
     private fun toast(msg: String) {
