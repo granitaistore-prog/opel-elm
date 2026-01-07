@@ -31,6 +31,25 @@
             android:textSize="24sp"
             android:gravity="center"/>
 
+        <!-- RPM GAUGE -->
+        <ProgressBar
+            android:id="@+id/rpmGauge"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:layout_columnSpan="2"
+            android:max="8000"/>
+
+        <!-- SPEED GAUGE -->
+        <ProgressBar
+            android:id="@+id/speedGauge"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="12dp"
+            android:layout_columnSpan="2"
+            android:max="240"
+            android:layout_marginTop="8dp"/>
+
         <!-- TEMP -->
         <TextView
             android:id="@+id/temp"
@@ -39,7 +58,8 @@
             android:layout_columnWeight="1"
             android:text="TEMP\n0°C"
             android:textSize="24sp"
-            android:gravity="center"/>
+            android:gravity="center"
+            android:layout_marginTop="12dp"/>
 
         <!-- FUEL -->
         <TextView
@@ -49,7 +69,8 @@
             android:layout_columnWeight="1"
             android:text="FUEL\n0.0 L/100km"
             android:textSize="24sp"
-            android:gravity="center"/>
+            android:gravity="center"
+            android:layout_marginTop="12dp"/>
 
         <!-- TRIP -->
         <TextView
