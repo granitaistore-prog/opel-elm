@@ -1,1 +1,7 @@
-<resources><color name="ic_launcher_background">#0F1115</color></resources>
+<resources>
+    <color name="bg">#000000</color>
+    <color name="neon_green">#00FF44</color>
+    <color name="neon_yellow">#FFD600</color>
+    <color name="neon_red">#FF0000</color>
+    <color name="gauge_bg">#303030</color>
+</resources>
