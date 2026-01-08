@@ -16,22 +16,29 @@ import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
+    // ===== UI =====
     private lateinit var rpmText: TextView
     private lateinit var speedText: TextView
+    private lateinit var rpmGauge: ProgressBar
+    private lateinit var speedGauge: ProgressBar
     private lateinit var btnSelectElm: Button
     private lateinit var btnReadDtc: Button
     private lateinit var btnClearDtc: Button
 
+    // ===== BT =====
     private var socket: BluetoothSocket? = null
     private var input: InputStream? = null
     private var output: OutputStream? = null
     private var lastDevice: BluetoothDevice? = null
 
+    // ===== LOOP =====
     private val handler = Handler(Looper.getMainLooper())
     private var live = false
 
     private val ELM_UUID =
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+
+    // =====================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +46,8 @@ class MainActivity : AppCompatActivity() {
 
         rpmText = findViewById(R.id.rpm)
         speedText = findViewById(R.id.speed)
+        rpmGauge = findViewById(R.id.rpmGauge)
+        speedGauge = findViewById(R.id.speedGauge)
         btnSelectElm = findViewById(R.id.btnSelectElm)
         btnReadDtc = findViewById(R.id.btnReadDtc)
         btnClearDtc = findViewById(R.id.btnClearDtc)
@@ -124,10 +133,15 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val rpm = readRPM()
                     val speed = readSpeed()
+
                     rpmText.text = "RPM\n$rpm"
                     speedText.text = "SPEED\n$speed"
+
+                    rpmGauge.progress = rpm.coerceIn(0, 8000)
+                    speedGauge.progress = speed.coerceIn(0, 240)
+
                 } catch (_: Exception) {}
-                handler.postDelayed(this, 800)
+                handler.postDelayed(this, 700)
             }
         })
     }
@@ -157,19 +171,18 @@ class MainActivity : AppCompatActivity() {
 
     // ================= LIVE DATA =================
     private fun readRPM(): Int {
-        val r = send("010C")
-        val d = r.replace(" ", "").replace(">", "")
-        if (!d.contains("410C")) return 0
-        val A = d.substringAfter("410C").substring(0, 2).toInt(16)
-        val B = d.substringAfter("410C").substring(2, 4).toInt(16)
+        val r = send("010C").replace(" ", "").replace(">", "")
+        if (!r.contains("410C")) return 0
+        val data = r.substringAfter("410C")
+        val A = data.substring(0, 2).toInt(16)
+        val B = data.substring(2, 4).toInt(16)
         return (A * 256 + B) / 4
     }
 
     private fun readSpeed(): Int {
-        val r = send("010D")
-        val d = r.replace(" ", "").replace(">", "")
-        if (!d.contains("410D")) return 0
-        return d.substringAfter("410D").substring(0, 2).toInt(16)
+        val r = send("010D").replace(" ", "").replace(">", "")
+        if (!r.contains("410D")) return 0
+        return r.substringAfter("410D").substring(0, 2).toInt(16)
     }
 
     // ================= DTC =================

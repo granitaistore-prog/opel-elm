@@ -1,125 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:gravity="center_horizontal">
 
-    <GridLayout
+    <!-- GAUGES -->
+    <LinearLayout
+        android:orientation="horizontal"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:columnCount="2">
-
-        <!-- RPM -->
-        <TextView
-            android:id="@+id/rpm"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:text="RPM\n0"
-            android:textSize="24sp"
-            android:gravity="center"/>
-
-        <!-- SPEED -->
-        <TextView
-            android:id="@+id/speed"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:text="SPEED\n0"
-            android:textSize="24sp"
-            android:gravity="center"/>
+        android:gravity="center">
 
         <!-- RPM GAUGE -->
-        <ProgressBar
-            android:id="@+id/rpmGauge"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="12dp"
-            android:layout_columnSpan="2"
-            android:max="8000"/>
+        <FrameLayout
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:layout_margin="8dp">
+
+            <ProgressBar
+                android:id="@+id/rpmGauge"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:max="8000"
+                android:progress="0"
+                android:indeterminate="false"
+                android:progressDrawable="@drawable/gauge_rpm"
+                android:rotation="-90"/>
+
+            <TextView
+                android:id="@+id/rpm"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:text="RPM\n0"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+        </FrameLayout>
 
         <!-- SPEED GAUGE -->
-        <ProgressBar
-            android:id="@+id/speedGauge"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="12dp"
-            android:layout_columnSpan="2"
-            android:max="240"
-            android:layout_marginTop="8dp"/>
+        <FrameLayout
+            android:layout_width="160dp"
+            android:layout_height="160dp"
+            android:layout_margin="8dp">
 
-        <!-- TEMP -->
-        <TextView
-            android:id="@+id/temp"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:text="TEMP\n0°C"
-            android:textSize="24sp"
-            android:gravity="center"
-            android:layout_marginTop="12dp"/>
+            <ProgressBar
+                android:id="@+id/speedGauge"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:max="240"
+                android:progress="0"
+                android:indeterminate="false"
+                android:progressDrawable="@drawable/gauge_speed"
+                android:rotation="-90"/>
 
-        <!-- FUEL -->
-        <TextView
-            android:id="@+id/fuel"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:text="FUEL\n0.0 L/100km"
-            android:textSize="24sp"
-            android:gravity="center"
-            android:layout_marginTop="12dp"/>
+            <TextView
+                android:id="@+id/speed"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:text="SPEED\n0"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:gravity="center"/>
+        </FrameLayout>
 
-        <!-- TRIP -->
-        <TextView
-            android:id="@+id/trip"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_columnSpan="2"
-            android:text="TRIP\n0 km | 0.0 L/100km"
-            android:textSize="20sp"
-            android:gravity="center"
-            android:paddingTop="12dp"/>
+    </LinearLayout>
 
-        <!-- START LOG -->
-        <Button
-            android:id="@+id/startLogBtn"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_columnSpan="2"
-            android:text="Start LOG"
-            android:layout_marginTop="12dp"/>
-
-        <!-- STOP LOG -->
-        <Button
-            android:id="@+id/stopLogBtn"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_columnSpan="2"
-            android:text="Stop LOG"/>
-
-    </GridLayout>
-
-    <!-- ELM + DTC -->
+    <!-- BUTTONS -->
     <Button
         android:id="@+id/btnSelectElm"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:text="Select ELM327"
-        android:layout_marginTop="12dp"/>
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
 
     <Button
         android:id="@+id/btnReadDtc"
+        android:text="Read DTC"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Read DTC"/>
+        android:layout_height="wrap_content"/>
 
     <Button
         android:id="@+id/btnClearDtc"
+        android:text="Clear DTC"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Clear DTC"/>
+        android:layout_height="wrap_content"/>
 
 </LinearLayout>
