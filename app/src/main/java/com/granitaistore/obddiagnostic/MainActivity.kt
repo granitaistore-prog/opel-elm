@@ -4,7 +4,7 @@ import android.Manifest
 import android.app.AlertDialog
 import android.bluetooth.*
 import android.content.pm.PackageManager
-import android.os.Bundle
+import android.os.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -26,6 +26,9 @@ class MainActivity : AppCompatActivity() {
     private var input: InputStream? = null
     private var output: OutputStream? = null
     private var lastDevice: BluetoothDevice? = null
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var live = false
 
     private val ELM_UUID =
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
@@ -52,23 +55,19 @@ class MainActivity : AppCompatActivity() {
         btnReadDtc.setOnClickListener {
             thread {
                 val dtc = readDtc()
-                runOnUiThread {
-                    showDtcDialog(dtc)
-                }
+                runOnUiThread { showDtcDialog(dtc) }
             }
         }
 
         btnClearDtc.setOnClickListener {
             thread {
-                clearDtc()
-                runOnUiThread {
-                    toast("DTC cleared")
-                }
+                send("04") // CLEAR DTC
+                runOnUiThread { toast("DTC cleared") }
             }
         }
     }
 
-    // ================= Permissions =================
+    // ================= PERMISSIONS =================
     private fun ensurePermissions() {
         val perms = arrayOf(
             Manifest.permission.BLUETOOTH_CONNECT,
@@ -85,7 +84,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ================= Device chooser =================
+    // ================= DEVICE PICKER =================
     private fun selectElmDevice(onSelected: (BluetoothDevice) -> Unit) {
         val adapter = BluetoothAdapter.getDefaultAdapter()
         val devices = adapter.bondedDevices.toList()
@@ -99,7 +98,7 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // ================= Connect =================
+    // ================= CONNECT =================
     private fun connect(device: BluetoothDevice) {
         thread {
             try {
@@ -108,14 +107,32 @@ class MainActivity : AppCompatActivity() {
                 input = socket!!.inputStream
                 output = socket!!.outputStream
                 initElm()
+                startLiveLoop()
                 runOnUiThread { toast("ELM connected") }
             } catch (e: Exception) {
-                runOnUiThread { toast("ELM error") }
+                runOnUiThread { toast("ELM connection error") }
             }
         }
     }
 
-    // ================= ELM init =================
+    // ================= LIVE LOOP =================
+    private fun startLiveLoop() {
+        live = true
+        handler.post(object : Runnable {
+            override fun run() {
+                if (!live) return
+                try {
+                    val rpm = readRPM()
+                    val speed = readSpeed()
+                    rpmText.text = "RPM\n$rpm"
+                    speedText.text = "SPEED\n$speed"
+                } catch (_: Exception) {}
+                handler.postDelayed(this, 800)
+            }
+        })
+    }
+
+    // ================= ELM INIT =================
     private fun initElm() {
         send("ATZ")
         send("ATE0")
@@ -125,7 +142,7 @@ class MainActivity : AppCompatActivity() {
         send("ATSP0")
     }
 
-    // ================= Send =================
+    // ================= SEND =================
     private fun send(cmd: String): String {
         return try {
             output?.write((cmd + "\r").toByteArray())
@@ -138,7 +155,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ================= READ DTC =================
+    // ================= LIVE DATA =================
+    private fun readRPM(): Int {
+        val r = send("010C")
+        val d = r.replace(" ", "").replace(">", "")
+        if (!d.contains("410C")) return 0
+        val A = d.substringAfter("410C").substring(0, 2).toInt(16)
+        val B = d.substringAfter("410C").substring(2, 4).toInt(16)
+        return (A * 256 + B) / 4
+    }
+
+    private fun readSpeed(): Int {
+        val r = send("010D")
+        val d = r.replace(" ", "").replace(">", "")
+        if (!d.contains("410D")) return 0
+        return d.substringAfter("410D").substring(0, 2).toInt(16)
+    }
+
+    // ================= DTC =================
     private fun readDtc(): List<String> {
         val raw = send("03")
             .replace(" ", "")
@@ -148,61 +182,36 @@ class MainActivity : AppCompatActivity() {
 
         if (!raw.startsWith("43")) return emptyList()
 
-        val dtc = mutableListOf<String>()
+        val list = mutableListOf<String>()
         var i = 2
 
         while (i + 4 <= raw.length) {
             val a = raw.substring(i, i + 2)
             val b = raw.substring(i + 2, i + 4)
             i += 4
-
             if (a == "00" && b == "00") break
-
             val code = decodeDtc(a, b)
-            dtc.add(code)
+            list.add("$code – ${DtcDescriptions.get(code)}")
         }
-
-        return dtc
+        return list
     }
 
     private fun decodeDtc(a: String, b: String): String {
         val A = a.toInt(16)
         val B = b.toInt(16)
-
-        val type = when (A shr 6) {
-            0 -> "P"
-            1 -> "C"
-            2 -> "B"
-            else -> "U"
-        }
-
-        val digit1 = (A shr 4) and 0x3
-        val digit2 = A and 0xF
-        val digit3 = B shr 4
-        val digit4 = B and 0xF
-
-        return "$type$digit1$digit2$digit3$digit4"
+        val type = listOf("P", "C", "B", "U")[A shr 6]
+        return "$type${(A shr 4) and 3}${A and 0xF}${B shr 4}${B and 0xF}"
     }
 
-    // ================= CLEAR DTC =================
+    // ================= UI =================
     private fun showDtcDialog(list: List<String>) {
-    val msg = if (list.isEmpty()) {
-        "No DTC errors"
-    } else {
-        list.joinToString("\n") { code ->
-            "$code – ${DtcDescriptions.get(code)}"
-        }
+        AlertDialog.Builder(this)
+            .setTitle("DTC")
+            .setMessage(if (list.isEmpty()) "No DTC errors" else list.joinToString("\n"))
+            .setPositiveButton("OK", null)
+            .show()
     }
 
-    AlertDialog.Builder(this)
-        .setTitle("DTC")
-        .setMessage(msg)
-        .setPositiveButton("OK", null)
-        .show()
-}
-
-
-    private fun toast(msg: String) {
+    private fun toast(msg: String) =
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-    }
 }
