@@ -2,9 +2,7 @@ package com.granitaistore.obddiagnostic
 
 import android.Manifest
 import android.app.AlertDialog
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothSocket
+import android.bluetooth.*
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.*
@@ -28,6 +26,10 @@ class MainActivity : AppCompatActivity() {
     private var input: InputStream? = null
     private var output: OutputStream? = null
 
+    private var lastDevice: BluetoothDevice? = null
+    @Volatile private var running = false
+    @Volatile private var reconnecting = false
+
     private val ELM_UUID =
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
@@ -41,17 +43,18 @@ class MainActivity : AppCompatActivity() {
         speedGauge = findViewById(R.id.speedGauge)
         btnSelectElm = findViewById(R.id.btnSelectElm)
 
-        ensureBluetoothPermissions()
+        ensurePermissions()
 
         btnSelectElm.setOnClickListener {
-            selectElmDevice { device ->
-                connectElm(device)
+            selectElmDevice {
+                lastDevice = it
+                connect(it)
             }
         }
     }
 
-    // ===== Permissions =====
-    private fun ensureBluetoothPermissions(): Boolean {
+    // ================= Permissions =================
+    private fun ensurePermissions() {
         val perms = arrayOf(
             Manifest.permission.BLUETOOTH_CONNECT,
             Manifest.permission.BLUETOOTH_SCAN,
@@ -64,25 +67,18 @@ class MainActivity : AppCompatActivity() {
 
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)
-            return false
         }
-        return true
     }
 
-    // ===== Device chooser =====
+    // ================= Device chooser =================
     private fun selectElmDevice(onSelected: (BluetoothDevice) -> Unit) {
         val adapter = BluetoothAdapter.getDefaultAdapter()
-        if (adapter == null || !adapter.isEnabled) {
+        if (!adapter.isEnabled) {
             toast("Bluetooth OFF")
             return
         }
 
         val devices = adapter.bondedDevices.toList()
-        if (devices.isEmpty()) {
-            toast("No paired ELM327")
-            return
-        }
-
         val names = devices.map { "${it.name}\n${it.address}" }
 
         AlertDialog.Builder(this)
@@ -93,32 +89,56 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // ===== Connect =====
-    private fun connectElm(device: BluetoothDevice) {
+    // ================= Connect =================
+    private fun connect(device: BluetoothDevice) {
+        if (reconnecting) return
+
+        reconnecting = true
+        running = false
+
         thread {
             try {
+                closeSocket()
+
                 socket = device.createRfcommSocketToServiceRecord(ELM_UUID)
                 socket!!.connect()
 
                 input = socket!!.inputStream
                 output = socket!!.outputStream
 
-                runOnUiThread {
-                    toast("ELM connected")
-                }
-
                 initElm()
+
+                running = true
+                reconnecting = false
+
+                runOnUiThread { toast("ELM connected") }
                 startLiveLoop()
 
             } catch (e: Exception) {
-                runOnUiThread {
-                    toast("ELM error: ${e.message}")
-                }
+                reconnecting = false
+                scheduleReconnect()
             }
         }
     }
 
-    // ===== ELM init =====
+    // ================= Auto reconnect =================
+    private fun scheduleReconnect() {
+        if (lastDevice == null || reconnecting) return
+
+        reconnecting = true
+
+        runOnUiThread {
+            toast("Reconnecting...")
+        }
+
+        thread {
+            Thread.sleep(3000)
+            reconnecting = false
+            connect(lastDevice!!)
+        }
+    }
+
+    // ================= ELM init =================
     private fun initElm() {
         send("ATZ")
         send("ATE0")
@@ -128,17 +148,22 @@ class MainActivity : AppCompatActivity() {
         send("ATSP0")
     }
 
-    // ===== Send command =====
+    // ================= Send =================
     private fun send(cmd: String): String {
-        output?.write((cmd + "\r").toByteArray())
-        Thread.sleep(200)
-
-        val buf = ByteArray(1024)
-        val len = input?.read(buf) ?: 0
-        return String(buf, 0, len)
+        return try {
+            output?.write((cmd + "\r").toByteArray())
+            Thread.sleep(150)
+            val buf = ByteArray(1024)
+            val len = input?.read(buf) ?: 0
+            String(buf, 0, len)
+        } catch (e: Exception) {
+            running = false
+            scheduleReconnect()
+            ""
+        }
     }
 
-    // ===== Read RPM =====
+    // ================= RPM =================
     private fun readRpm(): Int {
         val r = send("010C").replace(" ", "")
         val i = r.indexOf("410C")
@@ -148,7 +173,7 @@ class MainActivity : AppCompatActivity() {
         return ((A * 256) + B) / 4
     }
 
-    // ===== Read SPEED =====
+    // ================= SPEED =================
     private fun readSpeed(): Int {
         val r = send("010D").replace(" ", "")
         val i = r.indexOf("410D")
@@ -156,23 +181,35 @@ class MainActivity : AppCompatActivity() {
         return r.substring(i + 4, i + 6).toInt(16)
     }
 
-    // ===== Live loop =====
+    // ================= Live loop =================
     private fun startLiveLoop() {
         thread {
-            while (socket?.isConnected == true) {
-                val rpm = readRpm()
-                val speed = readSpeed()
+            while (running) {
+                try {
+                    val rpm = readRpm()
+                    val speed = readSpeed()
 
-                runOnUiThread {
-                    rpmText.text = "RPM\n$rpm"
-                    speedText.text = "SPEED\n$speed"
-                    rpmGauge.progress = rpm
-                    speedGauge.progress = speed
+                    runOnUiThread {
+                        rpmText.text = "RPM\n$rpm"
+                        speedText.text = "SPEED\n$speed"
+                        rpmGauge.progress = rpm
+                        speedGauge.progress = speed
+                    }
+
+                    Thread.sleep(800)
+
+                } catch (e: Exception) {
+                    running = false
+                    scheduleReconnect()
                 }
-
-                Thread.sleep(800)
             }
         }
+    }
+
+    private fun closeSocket() {
+        try { input?.close() } catch (_: Exception) {}
+        try { output?.close() } catch (_: Exception) {}
+        try { socket?.close() } catch (_: Exception) {}
     }
 
     private fun toast(msg: String) {
