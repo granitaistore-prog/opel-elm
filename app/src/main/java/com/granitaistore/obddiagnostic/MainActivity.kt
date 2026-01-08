@@ -11,34 +11,33 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.io.InputStream
 import java.io.OutputStream
-import java.util.UUID
+import java.util.*
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
-    // ===== UI =====
     private lateinit var rpmText: TextView
     private lateinit var speedText: TextView
-    private lateinit var rpmGauge: ProgressBar
-    private lateinit var speedGauge: ProgressBar
+    private lateinit var rpmNeedle: ImageView
     private lateinit var btnSelectElm: Button
     private lateinit var btnReadDtc: Button
     private lateinit var btnClearDtc: Button
+    private lateinit var startLogBtn: Button
+    private lateinit var stopLogBtn: Button
 
-    // ===== BT =====
     private var socket: BluetoothSocket? = null
     private var input: InputStream? = null
     private var output: OutputStream? = null
     private var lastDevice: BluetoothDevice? = null
 
-    // ===== LOOP =====
-    private val handler = Handler(Looper.getMainLooper())
+    private var logger: CsvLogger? = null
+    private var logging = false
     private var live = false
+
+    private val handler = Handler(Looper.getMainLooper())
 
     private val ELM_UUID =
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
-
-    // =====================================================
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,11 +45,13 @@ class MainActivity : AppCompatActivity() {
 
         rpmText = findViewById(R.id.rpm)
         speedText = findViewById(R.id.speed)
-        rpmGauge = findViewById(R.id.rpmGauge)
-        speedGauge = findViewById(R.id.speedGauge)
+        rpmNeedle = findViewById(R.id.rpmNeedle)
+
         btnSelectElm = findViewById(R.id.btnSelectElm)
         btnReadDtc = findViewById(R.id.btnReadDtc)
         btnClearDtc = findViewById(R.id.btnClearDtc)
+        startLogBtn = findViewById(R.id.startLogBtn)
+        stopLogBtn = findViewById(R.id.stopLogBtn)
 
         ensurePermissions()
 
@@ -63,16 +64,27 @@ class MainActivity : AppCompatActivity() {
 
         btnReadDtc.setOnClickListener {
             thread {
-                val dtc = readDtc()
-                runOnUiThread { showDtcDialog(dtc) }
+                val list = readDtc()
+                runOnUiThread { showDtcDialog(list) }
             }
         }
 
         btnClearDtc.setOnClickListener {
             thread {
-                send("04") // CLEAR DTC
+                clearDtc()
                 runOnUiThread { toast("DTC cleared") }
             }
+        }
+
+        startLogBtn.setOnClickListener {
+            logger = CsvLogger(this)
+            logging = true
+            toast("LOG started")
+        }
+
+        stopLogBtn.setOnClickListener {
+            logging = false
+            toast("Saved: ${logger?.path()}")
         }
     }
 
@@ -83,17 +95,16 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
-
         val missing = perms.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(this, it)
+                    != PackageManager.PERMISSION_GRANTED
         }
-
         if (missing.isNotEmpty()) {
             ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)
         }
     }
 
-    // ================= DEVICE PICKER =================
+    // ================= DEVICE SELECT =================
     private fun selectElmDevice(onSelected: (BluetoothDevice) -> Unit) {
         val adapter = BluetoothAdapter.getDefaultAdapter()
         val devices = adapter.bondedDevices.toList()
@@ -116,37 +127,49 @@ class MainActivity : AppCompatActivity() {
                 input = socket!!.inputStream
                 output = socket!!.outputStream
                 initElm()
-                startLiveLoop()
+                startLive()
                 runOnUiThread { toast("ELM connected") }
             } catch (e: Exception) {
-                runOnUiThread { toast("ELM connection error") }
+                runOnUiThread { toast("ELM error") }
             }
         }
     }
 
+    private fun reconnect() {
+        try { socket?.close() } catch (_: Exception) {}
+        lastDevice?.let { connect(it) }
+    }
+
     // ================= LIVE LOOP =================
-    private fun startLiveLoop() {
+    private fun startLive() {
         live = true
         handler.post(object : Runnable {
             override fun run() {
                 if (!live) return
-                try {
-                    val rpm = readRPM()
-                    val speed = readSpeed()
+                thread {
+                    try {
+                        val rpm = readRPM()
+                        val speed = readSpeed()
 
-                    rpmText.text = "RPM\n$rpm"
-                    speedText.text = "SPEED\n$speed"
+                        runOnUiThread {
+                            rpmText.text = "RPM\n$rpm"
+                            speedText.text = "SPEED\n$speed"
 
-                    rpmGauge.progress = rpm.coerceIn(0, 8000)
-                    speedGauge.progress = speed.coerceIn(0, 240)
+                            val angle = -135f + (rpm / 8000f) * 270f
+                            rpmNeedle.animate().rotation(angle).setDuration(300).start()
 
-                } catch (_: Exception) {}
-                handler.postDelayed(this, 700)
+                            if (logging) logger?.log(rpm, speed)
+                        }
+                    } catch (e: Exception) {
+                        reconnect()
+                    }
+                }
+                handler.postDelayed(this, 1000)
             }
         })
     }
 
-    // ================= ELM INIT =================
+    // ================= ELM =================
     private fun initElm() {
         send("ATZ")
         send("ATE0")
@@ -156,55 +179,44 @@ class MainActivity : AppCompatActivity() {
         send("ATSP0")
     }
 
-    // ================= SEND =================
     private fun send(cmd: String): String {
-        return try {
-            output?.write((cmd + "\r").toByteArray())
-            Thread.sleep(200)
-            val buf = ByteArray(1024)
-            val len = input?.read(buf) ?: 0
-            String(buf, 0, len)
-        } catch (e: Exception) {
-            ""
-        }
+        output?.write((cmd + "\r").toByteArray())
+        Thread.sleep(150)
+        val buf = ByteArray(1024)
+        val len = input?.read(buf) ?: 0
+        return String(buf, 0, len)
+            .replace(">", "")
+            .replace("\r", "")
+            .trim()
     }
 
-    // ================= LIVE DATA =================
     private fun readRPM(): Int {
-        val r = send("010C").replace(" ", "").replace(">", "")
-        if (!r.contains("410C")) return 0
-        val data = r.substringAfter("410C")
-        val A = data.substring(0, 2).toInt(16)
-        val B = data.substring(2, 4).toInt(16)
-        return (A * 256 + B) / 4
+        val r = send("010C").split(" ")
+        return if (r.size >= 4)
+            ((r[2].toInt(16) * 256 + r[3].toInt(16)) / 4)
+        else 0
     }
 
     private fun readSpeed(): Int {
-        val r = send("010D").replace(" ", "").replace(">", "")
-        if (!r.contains("410D")) return 0
-        return r.substringAfter("410D").substring(0, 2).toInt(16)
+        val r = send("010D").split(" ")
+        return if (r.size >= 3)
+            r[2].toInt(16)
+        else 0
     }
 
     // ================= DTC =================
     private fun readDtc(): List<String> {
-        val raw = send("03")
-            .replace(" ", "")
-            .replace("\r", "")
-            .replace("\n", "")
-            .replace(">", "")
-
+        val raw = send("03").replace(" ", "")
         if (!raw.startsWith("43")) return emptyList()
-
         val list = mutableListOf<String>()
         var i = 2
-
         while (i + 4 <= raw.length) {
             val a = raw.substring(i, i + 2)
             val b = raw.substring(i + 2, i + 4)
             i += 4
             if (a == "00" && b == "00") break
             val code = decodeDtc(a, b)
-            list.add("$code – ${DtcDescriptions.get(code)}")
+            list.add("$code — ${DtcDescriptions.get(code)}")
         }
         return list
     }
@@ -212,19 +224,26 @@ class MainActivity : AppCompatActivity() {
     private fun decodeDtc(a: String, b: String): String {
         val A = a.toInt(16)
         val B = b.toInt(16)
-        val type = listOf("P", "C", "B", "U")[A shr 6]
+        val type = when (A shr 6) {
+            0 -> "P"; 1 -> "C"; 2 -> "B"; else -> "U"
+        }
         return "$type${(A shr 4) and 3}${A and 0xF}${B shr 4}${B and 0xF}"
+    }
+
+    private fun clearDtc() {
+        send("04")
     }
 
     // ================= UI =================
     private fun showDtcDialog(list: List<String>) {
         AlertDialog.Builder(this)
             .setTitle("DTC")
-            .setMessage(if (list.isEmpty()) "No DTC errors" else list.joinToString("\n"))
+            .setMessage(if (list.isEmpty()) "No errors" else list.joinToString("\n"))
             .setPositiveButton("OK", null)
             .show()
     }
 
-    private fun toast(msg: String) =
+    private fun toast(msg: String) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
 }

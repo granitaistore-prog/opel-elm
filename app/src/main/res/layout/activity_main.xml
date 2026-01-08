@@ -20,6 +20,7 @@
             android:layout_height="160dp"
             android:layout_margin="8dp">
 
+            <!-- Gauge -->
             <ProgressBar
                 android:id="@+id/rpmGauge"
                 style="?android:attr/progressBarStyleHorizontal"
@@ -31,6 +32,18 @@
                 android:progressDrawable="@drawable/gauge_rpm"
                 android:rotation="-90"/>
 
+            <!-- Needle -->
+            <ImageView
+                android:id="@+id/rpmNeedle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/needle"
+                android:layout_gravity="center"
+                android:pivotX="50%"
+                android:pivotY="100%"
+                android:rotation="-135"/>
+
+            <!-- Text -->
             <TextView
                 android:id="@+id/rpm"
                 android:layout_width="match_parent"
@@ -47,6 +60,7 @@
             android:layout_height="160dp"
             android:layout_margin="8dp">
 
+            <!-- Gauge -->
             <ProgressBar
                 android:id="@+id/speedGauge"
                 style="?android:attr/progressBarStyleHorizontal"
@@ -58,6 +72,18 @@
                 android:progressDrawable="@drawable/gauge_speed"
                 android:rotation="-90"/>
 
+            <!-- Needle -->
+            <ImageView
+                android:id="@+id/speedNeedle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:src="@drawable/needle"
+                android:layout_gravity="center"
+                android:pivotX="50%"
+                android:pivotY="100%"
+                android:rotation="-135"/>
+
+            <!-- Text -->
             <TextView
                 android:id="@+id/speed"
                 android:layout_width="match_parent"
