@@ -185,23 +185,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ================= CLEAR DTC =================
-    private fun clearDtc() {
-        send("04")
-    }
-
-    // ================= UI =================
     private fun showDtcDialog(list: List<String>) {
-        val msg = if (list.isEmpty())
-            "No DTC errors"
-        else
-            list.joinToString("\n")
-
-        AlertDialog.Builder(this)
-            .setTitle("DTC")
-            .setMessage(msg)
-            .setPositiveButton("OK", null)
-            .show()
+    val msg = if (list.isEmpty()) {
+        "No DTC errors"
+    } else {
+        list.joinToString("\n") { code ->
+            "$code – ${DtcDescriptions.get(code)}"
+        }
     }
+
+    AlertDialog.Builder(this)
+        .setTitle("DTC")
+        .setMessage(msg)
+        .setPositiveButton("OK", null)
+        .show()
+}
+
 
     private fun toast(msg: String) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
