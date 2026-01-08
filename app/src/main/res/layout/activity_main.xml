@@ -1,97 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="16dp"
+    android:layout_height="match_parent">
+
+<LinearLayout
+    android:orientation="vertical"
+    android:padding="12dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     android:gravity="center_horizontal">
 
     <!-- GAUGES -->
     <LinearLayout
         android:orientation="horizontal"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
         android:gravity="center">
 
         <!-- RPM -->
-        <FrameLayout
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:layout_margin="8dp">
-
+        <FrameLayout android:layout_width="150dp" android:layout_height="150dp">
             <ProgressBar
                 android:id="@+id/rpmGauge"
                 style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
                 android:max="8000"
-                android:rotation="-90"/>
-
-            <TextView
-                android:id="@+id/rpm"
-                android:text="RPM\n0"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:gravity="center"
+                android:rotation="-90"
+                android:progressDrawable="@drawable/gauge_rpm"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"/>
+            <TextView android:id="@+id/rpm"
+                android:text="RPM\n0"
+                android:gravity="center"
+                android:textStyle="bold"/>
         </FrameLayout>
 
         <!-- SPEED -->
-        <FrameLayout
-            android:layout_width="160dp"
-            android:layout_height="160dp"
-            android:layout_margin="8dp">
-
+        <FrameLayout android:layout_width="150dp" android:layout_height="150dp">
             <ProgressBar
                 android:id="@+id/speedGauge"
                 style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
                 android:max="240"
-                android:rotation="-90"/>
-
-            <TextView
-                android:id="@+id/speed"
+                android:rotation="-90"
+                android:progressDrawable="@drawable/gauge_speed"/>
+            <TextView android:id="@+id/speed"
                 android:text="SPEED\n0"
-                android:textSize="18sp"
-                android:textStyle="bold"
                 android:gravity="center"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"/>
+                android:textStyle="bold"/>
         </FrameLayout>
-
     </LinearLayout>
 
-    <!-- TRIP -->
+    <!-- BOOST -->
+    <FrameLayout android:layout_width="150dp" android:layout_height="150dp">
+        <ProgressBar
+            android:id="@+id/boostGauge"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:max="200"
+            android:rotation="-90"
+            android:progressDrawable="@drawable/gauge_boost"/>
+        <TextView android:id="@+id/boost"
+            android:text="BOOST\n0 kPa"
+            android:gravity="center"
+            android:textStyle="bold"/>
+    </FrameLayout>
+
     <TextView
         android:id="@+id/trip"
-        android:text="TRIP\n0.00 km | 0.00 L | 0.0 L/100km"
-        android:textSize="16sp"
-        android:textStyle="bold"
+        android:text="TRIP\n0 km | 0 L | 0 L/100km"
         android:gravity="center"
-        android:layout_marginTop="12dp"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+        android:textStyle="bold"/>
 
-    <!-- BUTTONS -->
-    <Button
-        android:id="@+id/btnSelectElm"
-        android:text="Select ELM327"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-
-    <Button
-        android:id="@+id/btnReadDtc"
-        android:text="Read DTC"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
-
-    <Button
-        android:id="@+id/btnClearDtc"
-        android:text="Clear DTC"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"/>
+    <Button android:id="@+id/btnSelectElm" android:text="Select ELM327"/>
+    <Button android:id="@+id/btnReadDtc" android:text="Read DTC"/>
+    <Button android:id="@+id/btnClearDtc" android:text="Clear DTC"/>
 
 </LinearLayout>
+</ScrollView>

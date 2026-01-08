@@ -1,0 +1,25 @@
+<pids>
+  <pid>
+    <name>Opel Boost</name>
+    <mode>22</mode>
+    <pid>0133</pid>
+    <equation>((A*256)+B)/10-100</equation>
+    <unit>kPa</unit>
+  </pid>
+
+  <pid>
+    <name>Opel Battery Voltage</name>
+    <mode>22</mode>
+    <pid>0142</pid>
+    <equation>((A*256)+B)/1000</equation>
+    <unit>V</unit>
+  </pid>
+
+  <pid>
+    <name>Opel Throttle</name>
+    <mode>22</mode>
+    <pid>0111</pid>
+    <equation>A*100/255</equation>
+    <unit>%</unit>
+  </pid>
+</pids>
