@@ -1,9 +1,11 @@
 package com.granitaistore.obddiagnostic
 
 import android.Manifest
-import android.bluetooth.*
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothSocket
 import android.content.pm.PackageManager
-import android.os.*
+import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -32,19 +34,21 @@ class MainActivity : AppCompatActivity() {
     private var output: OutputStream? = null
     private var lastDevice: BluetoothDevice? = null
 
-    private val ELM_UUID =
+    private val ELM_UUID: UUID =
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     // ===== Live loop =====
-    @Volatile private var running: Boolean = false
+    @Volatile
+    private var running = false
 
-    // smoothing
+    // ===== Smoothing =====
     private var boostSmooth = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // UI bind
         rpmText = findViewById(R.id.rpmText)
         speedText = findViewById(R.id.speedText)
         boostText = findViewById(R.id.boostText)
@@ -85,12 +89,18 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
+
         val missing = perms.filter {
-            ContextCompat.checkSelfPermission(this, it)
-                    != PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(this, it) !=
+                    PackageManager.PERMISSION_GRANTED
         }
+
         if (missing.isNotEmpty()) {
-            ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)
+            ActivityCompat.requestPermissions(
+                this,
+                missing.toTypedArray(),
+                101
+            )
         }
     }
 
@@ -98,6 +108,12 @@ class MainActivity : AppCompatActivity() {
     private fun selectElmDevice(onSelected: (BluetoothDevice) -> Unit) {
         val adapter = BluetoothAdapter.getDefaultAdapter()
         val devices = adapter.bondedDevices.toList()
+
+        if (devices.isEmpty()) {
+            toast("No paired ELM devices")
+            return
+        }
+
         val names = devices.map { "${it.name}\n${it.address}" }
 
         AlertDialog.Builder(this)
@@ -111,20 +127,26 @@ class MainActivity : AppCompatActivity() {
     // ================= Connect =================
     private fun connect(device: BluetoothDevice) {
         running = false
+
         thread {
             try {
                 socket?.close()
+
                 socket = device.createRfcommSocketToServiceRecord(ELM_UUID)
                 socket!!.connect()
+
                 input = socket!!.inputStream
                 output = socket!!.outputStream
 
                 initElm()
+
                 running = true
                 startLiveLoop()
 
                 runOnUiThread { toast("ELM connected") }
-            } catch (_: Exception) {
+
+            } catch (e: Exception) {
+                runOnUiThread { toast("Connection failed") }
                 autoReconnect()
             }
         }
@@ -141,7 +163,7 @@ class MainActivity : AppCompatActivity() {
         send("ATE0")
         send("ATL0")
         send("ATS0")
-        send("ATH1")   // CAN headers
+        send("ATH1")   // CAN headers ON
         send("ATSP0")  // auto protocol
     }
 
@@ -161,7 +183,8 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     Thread.sleep(250)
-                } catch (_: Exception) {
+
+                } catch (e: Exception) {
                     running = false
                     autoReconnect()
                 }
@@ -170,22 +193,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ================= PIDs =================
-    private fun readRpm(): Int {
-        return parsePid(send("010C")) {
-            (it[0] * 256 + it[1]) / 4
+    private fun readRpm(): Int =
+        parsePid(send("010C")) { bytes ->
+            (bytes[0] * 256 + bytes[1]) / 4
         }
-    }
 
-    private fun readSpeed(): Int {
-        return parsePid(send("010D")) { it[0] }
-    }
+    private fun readSpeed(): Int =
+        parsePid(send("010D")) { bytes ->
+            bytes[0]
+        }
 
-    private fun readBoost(): Float {
-        return parsePid(send("010B")) {
-            val kpa = it[0]
+    // MAP → BOOST (bar)
+    private fun readBoost(): Float =
+        parsePid(send("010B")) { bytes ->
+            val kpa = bytes[0]
             (kpa - 100) / 100f
         }
-    }
 
     // ================= Needle physics =================
     private fun updateBoost(target: Float) {
@@ -194,12 +217,18 @@ class MainActivity : AppCompatActivity() {
 
         val angle = 135f + boostSmooth * 90f
         boostNeedle.rotation = angle
-        boostText.text = "BOOST\n${"%.2f".format(boostSmooth)} bar"
+
+        boostText.text =
+            "BOOST\n${"%.2f".format(boostSmooth)} bar"
     }
 
     // ================= PID parser =================
-    private fun <T> parsePid(resp: String, calc: (List<Int>) -> T): T {
-        val clean = resp.replace(" ", "")
+    private fun <T> parsePid(
+        resp: String,
+        calc: (List<Int>) -> T
+    ): T {
+        val clean = resp
+            .replace(" ", "")
             .replace("\r", "")
             .replace("\n", "")
             .replace(">", "")
@@ -209,7 +238,8 @@ class MainActivity : AppCompatActivity() {
             throw IllegalStateException("Invalid PID response")
         }
 
-        val bytes = clean.substring(idx + 4)
+        val bytes = clean
+            .substring(idx + 4)
             .chunked(2)
             .map { it.toInt(16) }
 
@@ -237,8 +267,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showDtcDialog(list: List<String>) {
-        val msg = if (list.isEmpty()) "No DTC"
-        else list.joinToString("\n")
+        val msg =
+            if (list.isEmpty()) "No DTC"
+            else list.joinToString("\n")
 
         AlertDialog.Builder(this)
             .setTitle("DTC")

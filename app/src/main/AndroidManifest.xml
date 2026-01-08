@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.granitaistore.obddiagnostic">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ===== BLUETOOTH ===== -->
+    <!-- ===== BLUETOOTH (legacy, < Android 12) ===== -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
 
-    <!-- Android 12+ -->
+    <!-- ===== BLUETOOTH (Android 12+) ===== -->
     <uses-permission
         android:name="android.permission.BLUETOOTH_CONNECT"
         android:usesPermissionFlags="neverForLocation" />
+
     <uses-permission
         android:name="android.permission.BLUETOOTH_SCAN"
         android:usesPermissionFlags="neverForLocation" />
 
-    <!-- Required for device discovery on < Android 12 -->
+    <!-- ===== Required for discovery on Android < 12 ===== -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- Optional -->
+    <!-- ===== Hardware ===== -->
     <uses-feature
         android:name="android.hardware.bluetooth"
         android:required="true" />
@@ -31,7 +31,7 @@
         android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
 
         <activity
-            android:name=".MainActivity"
+            android:name="com.granitaistore.obddiagnostic.MainActivity"
             android:exported="true"
             android:screenOrientation="landscape">
 
