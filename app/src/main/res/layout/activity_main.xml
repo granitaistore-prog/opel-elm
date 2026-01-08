@@ -14,87 +14,66 @@
         android:layout_height="wrap_content"
         android:gravity="center">
 
-        <!-- RPM GAUGE -->
+        <!-- RPM -->
         <FrameLayout
             android:layout_width="160dp"
             android:layout_height="160dp"
             android:layout_margin="8dp">
 
-            <!-- Gauge -->
             <ProgressBar
                 android:id="@+id/rpmGauge"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:max="8000"
-                android:progress="0"
-                android:indeterminate="false"
-                android:progressDrawable="@drawable/gauge_rpm"
                 android:rotation="-90"/>
 
-            <!-- Needle -->
-            <ImageView
-                android:id="@+id/rpmNeedle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/needle"
-                android:layout_gravity="center"
-                android:pivotX="50%"
-                android:pivotY="100%"
-                android:rotation="-135"/>
-
-            <!-- Text -->
             <TextView
                 android:id="@+id/rpm"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
                 android:text="RPM\n0"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:gravity="center"/>
+                android:gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
         </FrameLayout>
 
-        <!-- SPEED GAUGE -->
+        <!-- SPEED -->
         <FrameLayout
             android:layout_width="160dp"
             android:layout_height="160dp"
             android:layout_margin="8dp">
 
-            <!-- Gauge -->
             <ProgressBar
                 android:id="@+id/speedGauge"
                 style="?android:attr/progressBarStyleHorizontal"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:max="240"
-                android:progress="0"
-                android:indeterminate="false"
-                android:progressDrawable="@drawable/gauge_speed"
                 android:rotation="-90"/>
 
-            <!-- Needle -->
-            <ImageView
-                android:id="@+id/speedNeedle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/needle"
-                android:layout_gravity="center"
-                android:pivotX="50%"
-                android:pivotY="100%"
-                android:rotation="-135"/>
-
-            <!-- Text -->
             <TextView
                 android:id="@+id/speed"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
                 android:text="SPEED\n0"
                 android:textSize="18sp"
                 android:textStyle="bold"
-                android:gravity="center"/>
+                android:gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
         </FrameLayout>
 
     </LinearLayout>
+
+    <!-- TRIP -->
+    <TextView
+        android:id="@+id/trip"
+        android:text="TRIP\n0.00 km | 0.00 L | 0.0 L/100km"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginTop="12dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
 
     <!-- BUTTONS -->
     <Button
