@@ -1,11 +1,11 @@
 package com.granitaistore.obddiagnostic
 
 import android.Manifest
-import android.app.AlertDialog
 import android.bluetooth.*
 import android.content.pm.PackageManager
 import android.os.*
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -13,21 +13,21 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 import kotlin.concurrent.thread
-import kotlin.math.roundToInt
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var rpmGauge: ProgressBar
-    private lateinit var speedGauge: ProgressBar
+    // ===== UI =====
     private lateinit var rpmText: TextView
     private lateinit var speedText: TextView
-    private lateinit var boostNeedle: ImageView
     private lateinit var boostText: TextView
+    private lateinit var boostNeedle: ImageView
 
     private lateinit var btnSelectElm: Button
     private lateinit var btnReadDtc: Button
     private lateinit var btnClearDtc: Button
 
+    // ===== Bluetooth =====
     private var socket: BluetoothSocket? = null
     private var input: InputStream? = null
     private var output: OutputStream? = null
@@ -36,23 +36,21 @@ class MainActivity : AppCompatActivity() {
     private val ELM_UUID =
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
-    private val handler = Handler(Looper.getMainLooper())
-    private var running = false
+    // ===== Live loop =====
+    @Volatile private var running = false
 
     // smoothing
-    private var boostFiltered = 0f
-    private val SMOOTH = 0.15f
+    private var boostSmooth = 0f
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        rpmGauge = findViewById(R.id.rpmGauge)
-        speedGauge = findViewById(R.id.speedGauge)
+        // UI bind
         rpmText = findViewById(R.id.rpmText)
         speedText = findViewById(R.id.speedText)
-        boostNeedle = findViewById(R.id.boostNeedle)
         boostText = findViewById(R.id.boostText)
+        boostNeedle = findViewById(R.id.boostNeedle)
 
         btnSelectElm = findViewById(R.id.btnSelectElm)
         btnReadDtc = findViewById(R.id.btnReadDtc)
@@ -61,7 +59,7 @@ class MainActivity : AppCompatActivity() {
         ensurePermissions()
 
         btnSelectElm.setOnClickListener {
-            selectElm {
+            selectElmDevice {
                 lastDevice = it
                 connect(it)
             }
@@ -69,36 +67,37 @@ class MainActivity : AppCompatActivity() {
 
         btnReadDtc.setOnClickListener {
             thread {
-                val list = readDtc()
-                runOnUiThread { showDtc(list) }
+                val dtc = readDtc()
+                runOnUiThread { showDtcDialog(dtc) }
             }
         }
 
         btnClearDtc.setOnClickListener {
             thread {
-                send("04")
+                clearDtc()
                 runOnUiThread { toast("DTC cleared") }
             }
         }
     }
 
+    // ================= Permissions =================
     private fun ensurePermissions() {
         val perms = arrayOf(
             Manifest.permission.BLUETOOTH_CONNECT,
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.ACCESS_FINE_LOCATION
         )
-
         val missing = perms.filter {
             ContextCompat.checkSelfPermission(this, it)
                     != PackageManager.PERMISSION_GRANTED
         }
-
-        if (missing.isNotEmpty())
-            ActivityCompat.requestPermissions(this, missing.toTypedArray(), 1)
+        if (missing.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, missing.toTypedArray(), 101)
+        }
     }
 
-    private fun selectElm(onSelected: (BluetoothDevice) -> Unit) {
+    // ================= Device chooser =================
+    private fun selectElmDevice(onSelected: (BluetoothDevice) -> Unit) {
         val adapter = BluetoothAdapter.getDefaultAdapter()
         val devices = adapter.bondedDevices.toList()
         val names = devices.map { "${it.name}\n${it.address}" }
@@ -111,130 +110,143 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    // ================= Connect =================
     private fun connect(device: BluetoothDevice) {
+        running = false
         thread {
             try {
+                socket?.close()
                 socket = device.createRfcommSocketToServiceRecord(ELM_UUID)
                 socket!!.connect()
                 input = socket!!.inputStream
                 output = socket!!.outputStream
                 initElm()
-                startLive()
+                running = true
+                startLiveLoop()
                 runOnUiThread { toast("ELM connected") }
             } catch (e: Exception) {
-                runOnUiThread { toast("ELM error") }
+                autoReconnect()
             }
         }
     }
 
+    private fun autoReconnect() {
+        Thread.sleep(2000)
+        lastDevice?.let { connect(it) }
+    }
+
+    // ================= ELM init =================
     private fun initElm() {
         send("ATZ")
         send("ATE0")
         send("ATL0")
         send("ATS0")
-        send("ATH0")
-        send("ATSP0")
+        send("ATH1")   // headers ON (CAN raw)
+        send("ATSP0")  // auto protocol
     }
 
-    private fun startLive() {
-        running = true
-        handler.post(object : Runnable {
-            override fun run() {
-                if (!running) return
+    // ================= Live loop =================
+    private fun startLiveLoop() {
+        thread {
+            while (running) {
+                try {
+                    val rpm = readRpm()
+                    val speed = readSpeed()
+                    val boost = readBoost()
 
-                val rpm = readRpm()
-                val speed = readSpeed()
-                val boost = readBoost()
+                    runOnUiThread {
+                        rpmText.text = "RPM\n$rpm"
+                        speedText.text = "SPEED\n$speed"
+                        updateBoost(boost)
+                    }
 
-                updateUi(rpm, speed, boost)
-                handler.postDelayed(this, 300)
+                    Thread.sleep(250)
+                } catch (e: Exception) {
+                    running = false
+                    autoReconnect()
+                }
             }
-        })
+        }
     }
 
-    private fun updateUi(rpm: Int, speed: Int, boost: Float) {
-        rpmGauge.progress = rpm
-        speedGauge.progress = speed
-
-        rpmText.text = "RPM\n$rpm"
-        speedText.text = "SPEED\n$speed"
-
-        boostFiltered += (boost - boostFiltered) * SMOOTH
-        val angle = 135f + (boostFiltered.coerceIn(0f, 1f) * 270f)
-        boostNeedle.rotation = angle
-        boostText.text = String.format("BOOST\n%.2f bar", boostFiltered)
-    }
-
+    // ================= PIDs =================
     private fun readRpm(): Int {
         val r = send("010C")
-        return try {
-            val d = r.replace(" ", "")
-            val a = d.substringAfter("410C").substring(0, 4)
-            ((a.substring(0, 2).toInt(16) * 256 +
-                    a.substring(2, 4).toInt(16)) / 4)
-        } catch (e: Exception) { 0 }
+        return parsePid(r) { (it[0] * 256 + it[1]) / 4 }
     }
 
     private fun readSpeed(): Int {
         val r = send("010D")
-        return try {
-            r.replace(" ", "").substringAfter("410D")
-                .substring(0, 2).toInt(16)
-        } catch (e: Exception) { 0 }
+        return parsePid(r) { it[0] }
     }
 
+    // MAP → BOOST (bar)
     private fun readBoost(): Float {
         val r = send("010B")
-        return try {
-            val kpa = r.replace(" ", "").substringAfter("410B")
-                .substring(0, 2).toInt(16)
-            (kpa / 100f) - 1f
-        } catch (e: Exception) { 0f }
-    }
-
-    private fun send(cmd: String): String {
-        return try {
-            output?.write((cmd + "\r").toByteArray())
-            Thread.sleep(150)
-            val buf = ByteArray(1024)
-            val len = input?.read(buf) ?: 0
-            String(buf, 0, len)
-        } catch (e: Exception) { "" }
-    }
-
-    private fun readDtc(): List<String> {
-        val raw = send("03").replace(" ", "")
-        if (!raw.startsWith("43")) return emptyList()
-        val list = mutableListOf<String>()
-        var i = 2
-        while (i + 4 <= raw.length) {
-            val a = raw.substring(i, i + 2)
-            val b = raw.substring(i + 2, i + 4)
-            i += 4
-            if (a == "00" && b == "00") break
-            list.add(decodeDtc(a, b))
+        return parsePid(r) {
+            val kpa = it[0]
+            (kpa - 100) / 100f
         }
-        return list
     }
 
-    private fun decodeDtc(a: String, b: String): String {
-        val A = a.toInt(16)
-        val B = b.toInt(16)
-        val type = when (A shr 6) { 0 -> "P"; 1 -> "C"; 2 -> "B"; else -> "U" }
-        return "$type${(A shr 4) and 3}${A and 15}${B shr 4}${B and 15}"
+    // ================= Needle physics =================
+    private fun updateBoost(target: Float) {
+        val alpha = 0.15f
+        boostSmooth += (target - boostSmooth) * alpha
+
+        val angle = 135f + boostSmooth * 90f
+        boostNeedle.rotation = angle
+        boostText.text = "BOOST\n${"%.2f".format(boostSmooth)} bar"
     }
 
-    private fun showDtc(list: List<String>) {
-        val text = if (list.isEmpty()) "No DTC"
-        else list.joinToString("\n") { "$it – ${DtcDescriptions.get(it)}" }
+    // ================= CAN RAW =================
+    private fun parsePid(resp: String, calc: (List<Int>) -> Any): Any {
+        val clean = resp.replace(" ", "")
+            .replace("\r", "")
+            .replace("\n", "")
+            .replace(">", "")
+
+        val idx = clean.indexOf("41")
+        if (idx < 0 || clean.length < idx + 8) return 0
+
+        val bytes = clean.substring(idx + 4)
+            .chunked(2)
+            .map { it.toInt(16) }
+
+        return calc(bytes)
+    }
+
+    // ================= Send =================
+    private fun send(cmd: String): String {
+        output?.write((cmd + "\r").toByteArray())
+        Thread.sleep(120)
+        val buf = ByteArray(1024)
+        val len = input?.read(buf) ?: 0
+        return String(buf, 0, len)
+    }
+
+    // ================= DTC =================
+    private fun readDtc(): List<String> {
+        val raw = send("03")
+        return raw.lines().filter { it.startsWith("43") }
+    }
+
+    private fun clearDtc() {
+        send("04")
+    }
+
+    private fun showDtcDialog(list: List<String>) {
+        val msg = if (list.isEmpty()) "No DTC"
+        else list.joinToString("\n")
 
         AlertDialog.Builder(this)
             .setTitle("DTC")
-            .setMessage(text)
+            .setMessage(msg)
             .setPositiveButton("OK", null)
             .show()
     }
 
-    private fun toast(msg: String) =
+    private fun toast(msg: String) {
         Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
+    }
 }
