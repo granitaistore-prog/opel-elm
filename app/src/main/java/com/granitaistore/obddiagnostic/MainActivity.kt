@@ -13,7 +13,6 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 import kotlin.concurrent.thread
-import kotlin.math.abs
 
 class MainActivity : AppCompatActivity() {
 
@@ -37,7 +36,7 @@ class MainActivity : AppCompatActivity() {
         UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     // ===== Live loop =====
-    @Volatile private var running = false
+    @Volatile private var running: Boolean = false
 
     // smoothing
     private var boostSmooth = 0f
@@ -46,7 +45,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // UI bind
         rpmText = findViewById(R.id.rpmText)
         speedText = findViewById(R.id.speedText)
         boostText = findViewById(R.id.boostText)
@@ -120,11 +118,13 @@ class MainActivity : AppCompatActivity() {
                 socket!!.connect()
                 input = socket!!.inputStream
                 output = socket!!.outputStream
+
                 initElm()
                 running = true
                 startLiveLoop()
+
                 runOnUiThread { toast("ELM connected") }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 autoReconnect()
             }
         }
@@ -141,7 +141,7 @@ class MainActivity : AppCompatActivity() {
         send("ATE0")
         send("ATL0")
         send("ATS0")
-        send("ATH1")   // headers ON (CAN raw)
+        send("ATH1")   // CAN headers
         send("ATSP0")  // auto protocol
     }
 
@@ -161,7 +161,7 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     Thread.sleep(250)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     running = false
                     autoReconnect()
                 }
@@ -171,19 +171,17 @@ class MainActivity : AppCompatActivity() {
 
     // ================= PIDs =================
     private fun readRpm(): Int {
-        val r = send("010C")
-        return parsePid(r) { (it[0] * 256 + it[1]) / 4 }
+        return parsePid(send("010C")) {
+            (it[0] * 256 + it[1]) / 4
+        }
     }
 
     private fun readSpeed(): Int {
-        val r = send("010D")
-        return parsePid(r) { it[0] }
+        return parsePid(send("010D")) { it[0] }
     }
 
-    // MAP → BOOST (bar)
     private fun readBoost(): Float {
-        val r = send("010B")
-        return parsePid(r) {
+        return parsePid(send("010B")) {
             val kpa = it[0]
             (kpa - 100) / 100f
         }
@@ -199,15 +197,17 @@ class MainActivity : AppCompatActivity() {
         boostText.text = "BOOST\n${"%.2f".format(boostSmooth)} bar"
     }
 
-    // ================= CAN RAW =================
-    private fun parsePid(resp: String, calc: (List<Int>) -> Any): Any {
+    // ================= PID parser =================
+    private fun <T> parsePid(resp: String, calc: (List<Int>) -> T): T {
         val clean = resp.replace(" ", "")
             .replace("\r", "")
             .replace("\n", "")
             .replace(">", "")
 
         val idx = clean.indexOf("41")
-        if (idx < 0 || clean.length < idx + 8) return 0
+        if (idx < 0 || clean.length < idx + 8) {
+            throw IllegalStateException("Invalid PID response")
+        }
 
         val bytes = clean.substring(idx + 4)
             .chunked(2)
@@ -220,6 +220,7 @@ class MainActivity : AppCompatActivity() {
     private fun send(cmd: String): String {
         output?.write((cmd + "\r").toByteArray())
         Thread.sleep(120)
+
         val buf = ByteArray(1024)
         val len = input?.read(buf) ?: 0
         return String(buf, 0, len)
