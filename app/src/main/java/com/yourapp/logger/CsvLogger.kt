@@ -1,18 +1,26 @@
-package com.yourapp.logger
+class CsvLogger(context: Context) {
 
-import java.text.SimpleDateFormat
-import java.util.*
+    private val file: File
+    private val writer: BufferedWriter
+    private val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
-object LogSession {
+    init {
+        val dir = File(context.getExternalFilesDir(null), "logs")
+        if (!dir.exists()) dir.mkdirs()
 
-    private val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
-
-    fun timestamp(): String {
-        return formatter.format(Date())
+        file = File(dir, "obd_${System.currentTimeMillis()}.csv")
+        writer = BufferedWriter(FileWriter(file, true))
+        writer.write("Time,RPM,Speed,Boost\n")
+        writer.flush()
     }
 
-    fun fileName(): String {
-        val sdf = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
-        return "obd_log_${sdf.format(Date())}.csv"
+    fun log(rpm: Int, speed: Int, boost: Float) {
+        val line = "${sdf.format(Date())},$rpm,$speed,${"%.2f".format(boost)}\n"
+        writer.write(line)
+    }
+
+    fun close() {
+        writer.flush()
+        writer.close()
     }
 }

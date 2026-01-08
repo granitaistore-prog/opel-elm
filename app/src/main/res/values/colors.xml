@@ -22,5 +22,10 @@
 
     <!-- Launcher -->
     <color name="ic_launcher_background">#0B0F14</color>
+    <color name="bg">#050505</color>
+    <color name="neon_green">#00FF88</color>
+    <color name="neon_blue">#00B3FF</color>
+    <color name="neon_red">#FF3B3B</color>
+    <color name="text_primary">#E0E0E0</color>
 
 </resources>
