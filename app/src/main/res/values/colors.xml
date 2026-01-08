@@ -1,7 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#000000</color>
-    <color name="neon_green">#00FF44</color>
-    <color name="neon_yellow">#FFD600</color>
-    <color name="neon_red">#FF0000</color>
-    <color name="gauge_bg">#303030</color>
+    <!-- App colors -->
+    <color name="ic_launcher_background">#0B0F14</color>
 </resources>
