@@ -24,8 +24,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.OpelElmDiagnostic"
-        tools:targetApi="31">
+        android:theme="@style/Theme.OpelElmDiagnostic">
         
         <activity
             android:name=".MainActivity"
