@@ -11,35 +11,42 @@ import java.util.Locale
 
 class CsvLogger(private val context: Context) {
 
-    private var file: File
-    private var writer: BufferedWriter
+    private var file: File? = null
+    private var writer: BufferedWriter? = null
 
-    private val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+    private val timeFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
-    init {
-        val dir = File(context.getExternalFilesDir(null), "logs")
+    fun start() {
+        val dir = File(
+            context.getExternalFilesDir(null),
+            "logs"
+        )
         if (!dir.exists()) dir.mkdirs()
 
         val name = "obd_log_${System.currentTimeMillis()}.csv"
         file = File(dir, name)
-        writer = BufferedWriter(FileWriter(file, true))
+        writer = BufferedWriter(FileWriter(file!!, true))
 
-        // Torque-style header
-        writer.write("Time,RPM,Speed(km/h),CAN_ID,DATA\n")
-        writer.flush()
+        // Header like Torque
+        writer?.write("Timestamp,RPM,Speed_kmh,Boost_bar,CAN_ID,CAN_DATA\n")
+        writer?.flush()
     }
 
-    fun log(rpm: Int, speed: Int, canId: String? = "", data: String? = "") {
-        val time = sdf.format(Date())
-        val line = "$time,$rpm,$speed,$canId,$data\n"
-        writer.write(line)
-        writer.flush()
+    fun stop() {
+        writer?.flush()
+        writer?.close()
+        writer = null
     }
 
-    fun close() {
-        writer.flush()
-        writer.close()
+    fun logPid(rpm: Int, speed: Int, boost: Float) {
+        val ts = timeFormat.format(Date())
+        val line = "$ts,$rpm,$speed,${"%.2f".format(boost)},,\n"
+        writer?.write(line)
     }
 
-    fun getFile(): File = file
+    fun logCan(canId: String, data: String) {
+        val ts = timeFormat.format(Date())
+        val line = "$ts,,,,${canId},${data}\n"
+        writer?.write(line)
+    }
 }
