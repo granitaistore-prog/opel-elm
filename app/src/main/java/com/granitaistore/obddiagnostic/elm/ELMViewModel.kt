@@ -1,122 +1,80 @@
 package com.granitaistore.obddiagnostic.elm
 
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothSocket
-import android.util.Log
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStream
-import java.util.UUID
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
-class ElmConnection(private val device: BluetoothDevice) {
+class ElmViewModel(
+    private val elm: ElmConnection,
+    private val csvLogger: CsvLogger
+) : ViewModel() {
 
-    private val TAG = "ElmConnection"
-    private val ELM_UUID: UUID =
-        UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+    val rpm = MutableStateFlow(0)
+    val speed = MutableStateFlow(0)
+    val isConnected = MutableStateFlow(false)
+    val canFrames = MutableStateFlow<List<CanFrame>>(emptyList())
 
-    private var socket: BluetoothSocket? = null
-    private var reader: BufferedReader? = null
-    private var output: OutputStream? = null
-    private var isRunning = false
+    private var pollingJob: Job? = null
+    private var canJob: Job? = null
 
-    suspend fun connect(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            socket = device.createRfcommSocketToServiceRecord(ELM_UUID)
-            socket?.connect()
-
-            reader = BufferedReader(InputStreamReader(socket!!.inputStream))
-            output = socket!!.outputStream
-
-            initElm()
-            true
-        } catch (e: Exception) {
-            Log.e(TAG, "Connect error", e)
-            false
-        }
-    }
-
-    private fun initElm() {
-        send("ATZ")
-        send("ATE0")
-        send("ATL0")
-        send("ATS0")
-        send("ATH1")      // CAN headers ON
-        send("ATSP0")    // Auto protocol
-        send("ATCAF0")   // RAW CAN
-        send("ATAL")     // Allow long frames
-    }
-
-    fun disconnect() {
-        try {
-            isRunning = false
-            reader?.close()
-            output?.close()
-            socket?.close()
-        } catch (_: Exception) {}
-    }
-
-    fun send(cmd: String, delayMs: Long = 100): String {
-        return try {
-            output?.write((cmd + "\r").toByteArray())
-            Thread.sleep(delayMs)
-
-            val sb = StringBuilder()
-            while (reader?.ready() == true) {
-                sb.append(reader!!.readLine()).append("\n")
+    // ================= CONNECT =================
+    fun connect(device: BluetoothDevice) {
+        viewModelScope.launch {
+            isConnected.value = elm.connect(device)
+            if (isConnected.value) {
+                startLive()
             }
-            sb.toString().trim()
-        } catch (e: Exception) {
-            Log.e(TAG, "Send error: $cmd", e)
-            ""
         }
     }
 
-    // ============ OBD стандартні PID ============
-    fun readRpm(): Int {
-        val resp = send("010C")
-        val bytes = parseBytes(resp)
-        return if (bytes.size >= 2)
-            ((bytes[0] * 256) + bytes[1]) / 4
-        else 0
+    // ================= RECONNECT =================
+    fun reconnect(device: BluetoothDevice) {
+        stop()
+        connect(device)
     }
 
-    fun readSpeed(): Int {
-        val resp = send("010D")
-        val bytes = parseBytes(resp)
-        return if (bytes.isNotEmpty()) bytes[0] else 0
-    }
+    // ================= LIVE LOOP =================
+    private fun startLive() {
+        pollingJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive && elm.isConnected) {
+                try {
+                    val r = elm.getRPM()
+                    val s = elm.getSpeed()
 
-    // ============ RAW CAN STREAM ============
-    suspend fun startCanStream(onFrame: (id: String, data: String) -> Unit) =
-        withContext(Dispatchers.IO) {
-            isRunning = true
-            send("ATMA") // Monitor all CAN
+                    rpm.value = r
+                    speed.value = s
 
-            while (isRunning) {
-                val line = reader?.readLine() ?: continue
-                if (line.length >= 5 && line.contains(" ")) {
-                    val parts = line.split(" ", limit = 2)
-                    onFrame(parts[0], parts[1])
+                    csvLogger.log(r, s)
+                } catch (_: Exception) {}
+
+                delay(200) // 5Hz like Torque
+            }
+        }
+
+        canJob = viewModelScope.launch(Dispatchers.IO) {
+            while (isActive && elm.isConnected) {
+                val frame = elm.readCanFrame()
+                frame?.let {
+                    canFrames.value = (canFrames.value + it).takeLast(100)
                 }
+                delay(10)
             }
         }
-
-    fun stopCanStream() {
-        isRunning = false
-        send("AT") // stop monitor
     }
 
-    // ============ PARSER ============
-    private fun parseBytes(resp: String): List<Int> {
-        val clean = resp.replace(" ", "").replace("\n", "")
-        if (!clean.contains("41")) return emptyList()
+    // ================= STOP =================
+    fun stop() {
+        pollingJob?.cancel()
+        canJob?.cancel()
+        elm.disconnect()
+        isConnected.value = false
+    }
 
-        val data = clean.substringAfter("41").substring(2)
-        return data.chunked(2).mapNotNull {
-            try { it.toInt(16) } catch (_: Exception) { null }
-        }
+    override fun onCleared() {
+        super.onCleared()
+        stop()
     }
 }
