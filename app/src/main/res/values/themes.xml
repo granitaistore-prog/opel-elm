@@ -1,6 +1,0 @@
-<resources>
-    <style name="Theme.App.Dark" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="android:windowBackground">@color/bg</item>
-        <item name="android:textColor">@color/neon_green</item>
-    </style>
-</resources>
