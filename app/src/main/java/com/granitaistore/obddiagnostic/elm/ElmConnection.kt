@@ -6,117 +6,124 @@ import android.bluetooth.BluetoothSocket
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import java.io.InputStream
 import java.io.OutputStream
-import java.util.UUID
+import java.util.*
 
-class ElmConnection(private val device: BluetoothDevice) {
+class ElmConnection {
 
     private val TAG = "ElmConnection"
-    private val ELM_UUID: UUID =
-        UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+    private val ELM_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 
     private var socket: BluetoothSocket? = null
-    private var reader: BufferedReader? = null
+    private var input: InputStream? = null
     private var output: OutputStream? = null
-    private var isRunning = false
 
-    suspend fun connect(): Boolean = withContext(Dispatchers.IO) {
+    var isConnected = false
+        private set
+
+    suspend fun connect(device: BluetoothDevice): Boolean = withContext(Dispatchers.IO) {
         try {
             socket = device.createRfcommSocketToServiceRecord(ELM_UUID)
-            socket?.connect()
+            socket!!.connect()
 
-            reader = BufferedReader(InputStreamReader(socket!!.inputStream))
+            input = socket!!.inputStream
             output = socket!!.outputStream
 
             initElm()
+            isConnected = true
+            Log.d(TAG, "ELM connected")
             true
         } catch (e: Exception) {
             Log.e(TAG, "Connect error", e)
+            disconnect()
             false
         }
     }
 
-    private fun initElm() {
-        send("ATZ")
-        send("ATE0")
-        send("ATL0")
-        send("ATS0")
-        send("ATH1")      // CAN headers ON
-        send("ATSP0")    // Auto protocol
-        send("ATCAF0")   // RAW CAN
-        send("ATAL")     // Allow long frames
-    }
-
     fun disconnect() {
         try {
-            isRunning = false
-            reader?.close()
+            isConnected = false
+            input?.close()
             output?.close()
             socket?.close()
         } catch (_: Exception) {}
     }
 
-    fun send(cmd: String, delayMs: Long = 100): String {
-        return try {
-            output?.write((cmd + "\r").toByteArray())
-            Thread.sleep(delayMs)
+    // ================= AT INIT =================
+    private suspend fun initElm() {
+        send("ATZ")     // Reset
+        send("ATE0")    // Echo off
+        send("ATL0")    // Linefeeds off
+        send("ATS0")    // Spaces off
+        send("ATH1")    // Headers on (CAN IDs)
+        send("ATSP0")   // Auto protocol
+        send("ATCAF0")  // Raw CAN
+        send("ATCRA7E8")// Listen engine ECU
+    }
 
-            val sb = StringBuilder()
-            while (reader?.ready() == true) {
-                sb.append(reader!!.readLine()).append("\n")
-            }
-            sb.toString().trim()
+    // ================= SEND =================
+    suspend fun send(cmd: String, timeout: Long = 200): String = withContext(Dispatchers.IO) {
+        try {
+            output?.write((cmd + "\r").toByteArray())
+            output?.flush()
+            Thread.sleep(timeout)
+            read()
         } catch (e: Exception) {
-            Log.e(TAG, "Send error: $cmd", e)
+            Log.e(TAG, "Send error", e)
             ""
         }
     }
 
-    // ============ OBD стандартні PID ============
-    fun readRpm(): Int {
-        val resp = send("010C")
-        val bytes = parseBytes(resp)
-        return if (bytes.size >= 2)
-            ((bytes[0] * 256) + bytes[1]) / 4
-        else 0
+    // ================= READ =================
+    private fun read(): String {
+        val buffer = ByteArray(1024)
+        val sb = StringBuilder()
+
+        try {
+            while (input!!.available() > 0) {
+                val len = input!!.read(buffer)
+                sb.append(String(buffer, 0, len))
+            }
+        } catch (_: Exception) {}
+
+        return sb.toString().replace(">", "").trim()
     }
 
-    fun readSpeed(): Int {
-        val resp = send("010D")
-        val bytes = parseBytes(resp)
+    // ================= OBD PIDS =================
+    suspend fun getRPM(): Int {
+        val r = send("010C")
+        val bytes = parseHex(r)
+        return if (bytes.size >= 2) ((bytes[0] * 256) + bytes[1]) / 4 else 0
+    }
+
+    suspend fun getSpeed(): Int {
+        val r = send("010D")
+        val bytes = parseHex(r)
         return if (bytes.isNotEmpty()) bytes[0] else 0
     }
 
-    // ============ RAW CAN STREAM ============
-    suspend fun startCanStream(onFrame: (id: String, data: String) -> Unit) =
-        withContext(Dispatchers.IO) {
-            isRunning = true
-            send("ATMA") // Monitor all CAN
-
-            while (isRunning) {
-                val line = reader?.readLine() ?: continue
-                if (line.length >= 5 && line.contains(" ")) {
-                    val parts = line.split(" ", limit = 2)
-                    onFrame(parts[0], parts[1])
-                }
-            }
+    // ================= CAN RAW STREAM =================
+    suspend fun readCanFrame(): CanFrame? {
+        val line = read()
+        if (line.matches(Regex("^[0-9A-F]{3}.*"))) {
+            val id = line.substring(0, 3)
+            val data = line.substring(3).trim()
+            return CanFrame(id, data)
         }
-
-    fun stopCanStream() {
-        isRunning = false
-        send("AT") // stop monitor
+        return null
     }
 
-    // ============ PARSER ============
-    private fun parseBytes(resp: String): List<Int> {
-        val clean = resp.replace(" ", "").replace("\n", "")
-        if (!clean.contains("41")) return emptyList()
-
-        val data = clean.substringAfter("41").substring(2)
-        return data.chunked(2).mapNotNull {
+    // ================= UTILS =================
+    private fun parseHex(resp: String): List<Int> {
+        val clean = resp.replace(" ", "").replace("410C", "").replace("410D", "")
+        return clean.chunked(2).mapNotNull {
             try { it.toInt(16) } catch (_: Exception) { null }
         }
     }
 }
+
+data class CanFrame(
+    val id: String,
+    val data: String
+)
