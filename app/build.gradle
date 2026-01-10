@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace 'com.granitaistore.obddiagnostic'
-    compileSdk 34
+    compileSdk 33  // Змінив з 34 на 33 для сумісності
 
     defaultConfig {
         applicationId "com.granitaistore.obddiagnostic"
         minSdk 24
-        targetSdk 34
+        targetSdk 33
         versionCode 1
         versionName "1.0"
 
@@ -69,18 +69,13 @@ dependencies {
     implementation 'androidx.compose.ui:ui'
     implementation 'androidx.compose.ui:ui-graphics'
     implementation 'androidx.compose.ui:ui-tooling-preview'
-    
-    // Material3 - оновлена версія
     implementation 'androidx.compose.material3:material3:1.2.0'
-    implementation 'androidx.compose.material3:material3-window-size-class:1.2.0'
     
-    implementation 'androidx.compose.material:material-icons-extended'
+    // AppCompat для теми
+    implementation 'androidx.appcompat:appcompat:1.6.1'
     
     // Navigation
     implementation 'androidx.navigation:navigation-compose:2.7.6'
-    
-    // AppCompat для теми (потрібно для AndroidManifest)
-    implementation 'androidx.appcompat:appcompat:1.6.1'
     
     // Bluetooth та локація
     implementation 'androidx.activity:activity-ktx:1.8.2'
