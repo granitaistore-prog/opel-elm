@@ -1,19 +1,18 @@
-package com.granitaistore.obddiagnostic
+package com.granitaistore.obddiagnostic.elm
 
-import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.util.Log
+import kotlinx.coroutines.*
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 
-class ElmConnection {
+class ElmConnection(private val device: BluetoothDevice) {
 
     companion object {
         private const val TAG = "ElmConnection"
-        private val ELM_UUID: UUID =
+        private val ELM_UUID =
             UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     }
 
@@ -21,147 +20,120 @@ class ElmConnection {
     private var input: InputStream? = null
     private var output: OutputStream? = null
 
-    private val connected = AtomicBoolean(false)
+    private var canListener: ((String, String) -> Unit)? = null
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     // ================= CONNECT =================
-    fun connect(device: BluetoothDevice): Boolean {
-        return try {
-            disconnect()
-
+    suspend fun connect(): Boolean = withContext(Dispatchers.IO) {
+        try {
             socket = device.createRfcommSocketToServiceRecord(ELM_UUID)
             socket!!.connect()
-
             input = socket!!.inputStream
             output = socket!!.outputStream
 
             initElm()
-            connected.set(true)
+            startCanStream()
 
-            Log.i(TAG, "ELM connected: ${device.name}")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Connect error", e)
+            Log.e(TAG, "Connect failed", e)
             false
         }
     }
 
     fun disconnect() {
         try {
-            connected.set(false)
-            input?.close()
-            output?.close()
+            scope.cancel()
             socket?.close()
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
     }
 
-    fun isConnected(): Boolean = connected.get()
-
     // ================= INIT =================
-    private fun initElm() {
-        send("ATZ")     // reset
-        send("ATE0")    // echo off
-        send("ATL0")    // linefeeds off
-        send("ATS0")    // spaces off
-        send("ATH1")    // headers ON (CAN RAW)
-        send("ATSP0")   // auto protocol
-        send("ATCAF0")  // raw CAN frames
-        send("ATDPN")   // show protocol
+    private suspend fun initElm() {
+        send("ATZ")
+        delay(800)
+        send("ATE0")
+        send("ATL0")
+        send("ATS0")
+        send("ATH1")   // CAN headers ON
+        send("ATSP0")  // auto protocol
+        send("ATCAF1") // auto formatting
+        send("ATMA")   // monitor all CAN (raw stream)
     }
 
     // ================= SEND =================
-    @Synchronized
-    fun send(cmd: String, timeoutMs: Long = 200): String {
-        if (!connected.get()) return ""
+    suspend fun send(cmd: String): String = withContext(Dispatchers.IO) {
+        output?.write((cmd + "\r").toByteArray())
+        output?.flush()
+        delay(100)
 
-        try {
-            output?.write((cmd + "\r").toByteArray())
-            output?.flush()
+        val buffer = ByteArray(4096)
+        val len = input?.read(buffer) ?: 0
+        String(buffer, 0, len)
+    }
 
-            Thread.sleep(timeoutMs)
+    // ================= PID HELPERS =================
+    suspend fun readRpm(): Int {
+        val r = send("010C")
+        return parsePid(r) { (it[0] * 256 + it[1]) / 4 }
+    }
 
-            val buffer = ByteArray(4096)
-            val len = input?.available()?.let {
-                if (it > 0) input?.read(buffer) else 0
-            } ?: 0
+    suspend fun readSpeed(): Int {
+        val r = send("010D")
+        return parsePid(r) { it[0] }
+    }
 
-            return if (len > 0)
-                String(buffer, 0, len)
-                    .replace(">", "")
-                    .trim()
-            else ""
+    suspend fun readBoostBar(): Float {
+        val r = send("010B")
+        return parsePid(r) { (it[0] - 100) / 100f }
+    }
 
-        } catch (e: Exception) {
-            Log.e(TAG, "Send error", e)
-            connected.set(false)
-            return ""
+    // ================= CAN RAW STREAM =================
+    private fun startCanStream() {
+        scope.launch {
+            val buf = ByteArray(1024)
+            while (isActive) {
+                try {
+                    val len = input?.read(buf) ?: continue
+                    val data = String(buf, 0, len)
+                    parseCanFrames(data)
+                } catch (e: Exception) {
+                    Log.e(TAG, "CAN stream error", e)
+                    break
+                }
+            }
         }
     }
 
-    // ================= PID =================
-    fun readPid(pid: String): String {
-        return send(pid)
+    fun setCanListener(listener: (canId: String, data: String) -> Unit) {
+        canListener = listener
     }
 
-    // ================= RPM =================
-    fun readRpm(): Int {
-        val resp = send("010C")
-        return parsePid(resp) {
-            (it[0] * 256 + it[1]) / 4
-        } ?: 0
-    }
-
-    // ================= SPEED =================
-    fun readSpeed(): Int {
-        val resp = send("010D")
-        return parsePid(resp) { it[0] } ?: 0
-    }
-
-    // ================= BOOST (MAP) =================
-    fun readBoostBar(): Float {
-        val resp = send("010B")
-        return parsePid(resp) {
-            val kpa = it[0]
-            (kpa - 100) / 100f
-        } ?: 0f
-    }
-
-    // ================= CAN RAW =================
-    fun readCanRaw(): List<String> {
-        val raw = send("0100", 300)
-        return raw.lines().filter { it.matches(Regex("^[0-9A-F]{3}.*")) }
+    private fun parseCanFrames(raw: String) {
+        raw.lines().forEach { line ->
+            if (line.matches(Regex("^[0-9A-F]{3}.*"))) {
+                val id = line.substring(0, 3)
+                val data = line.substring(3).trim()
+                canListener?.invoke(id, data)
+            }
+        }
     }
 
     // ================= PID PARSER =================
-    private fun <T> parsePid(
-        resp: String,
-        calc: (List<Int>) -> T
-    ): T? {
-        if (resp.isEmpty()) return null
-
+    private fun <T> parsePid(resp: String, calc: (List<Int>) -> T): T {
         val clean = resp.replace(" ", "")
             .replace("\r", "")
             .replace("\n", "")
+            .replace(">", "")
 
         val idx = clean.indexOf("41")
-        if (idx < 0 || clean.length < idx + 8) return null
+        if (idx < 0 || clean.length < idx + 8)
+            throw IllegalStateException("Invalid PID response: $resp")
 
         val bytes = clean.substring(idx + 4)
             .chunked(2)
-            .mapNotNull {
-                try {
-                    it.toInt(16)
-                } catch (_: Exception) {
-                    null
-                }
-            }
+            .map { it.toInt(16) }
 
-        return if (bytes.isNotEmpty()) calc(bytes) else null
-    }
-
-    // ================= DEVICE LIST =================
-    fun getBondedDevices(): List<BluetoothDevice> {
-        val adapter = BluetoothAdapter.getDefaultAdapter()
-        return adapter?.bondedDevices?.toList() ?: emptyList()
+        return calc(bytes)
     }
 }

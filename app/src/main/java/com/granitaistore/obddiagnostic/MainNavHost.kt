@@ -2,16 +2,25 @@ package com.granitaistore.obddiagnostic
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 @Composable
 fun MainNavHost() {
-    val nav = rememberNavController()
+    val navController = rememberNavController()
 
-    NavHost(nav, startDestination = "scan") {
-        composable("scan") { ScanScreen(nav) }
-        composable("dashboard") { DashboardScreen(nav) }
-        composable("canraw") { CanRawScreen(nav) }
+    NavHost(
+        navController = navController,
+        startDestination = "dashboard"
+    ) {
+        composable("dashboard") {
+            DashboardScreen(navController)
+        }
+        composable("can_raw") {
+            CanRawScreen(navController)
+        }
+        composable("scan") {
+            ScanScreen(navController)
+        }
     }
 }

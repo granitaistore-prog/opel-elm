@@ -10,46 +10,49 @@ import java.util.Locale
 
 class CsvLogger(private val context: Context) {
 
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private var writer: BufferedWriter? = null
     private var file: File? = null
 
-    fun startSession(fileName: String = "obd_log_${System.currentTimeMillis()}.csv") {
+    private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+
+    fun start() {
         val dir = File(context.getExternalFilesDir(null), "logs")
         if (!dir.exists()) dir.mkdirs()
 
-        file = File(dir, fileName)
+        val name = "obd_log_${System.currentTimeMillis()}.csv"
+        file = File(dir, name)
         writer = BufferedWriter(FileWriter(file!!, true))
 
-        // CSV header (Torque style)
-        writer?.write("Time,ECU,PID,Value,Unit,Raw\n")
+        // Torque compatible header
+        writer?.write("Time,RPM,Speed,Boost,Throttle,Load,Coolant,CAN_ID,CAN_DATA\n")
         writer?.flush()
     }
 
     fun log(
-        ecu: String,
-        pid: String,
-        value: String,
-        unit: String,
-        raw: String
+        rpm: Int,
+        speed: Int,
+        boost: Float,
+        throttle: Int,
+        load: Int,
+        coolant: Int,
+        canId: String = "",
+        canData: String = ""
     ) {
         val time = dateFormat.format(Date())
-        val line = "$time,$ecu,$pid,$value,$unit,$raw\n"
+
+        val line = "$time,$rpm,$speed,${"%.2f".format(boost)},$throttle,$load,$coolant,$canId,$canData\n"
         writer?.write(line)
-        writer?.flush()
     }
 
-    fun logCanRaw(canId: String, data: String) {
-        val time = dateFormat.format(Date())
-        val line = "$time,CAN,$canId,,$,${data.replace(" ", "")}\n"
-        writer?.write(line)
+    fun flush() {
         writer?.flush()
     }
 
     fun stop() {
+        writer?.flush()
         writer?.close()
         writer = null
     }
 
-    fun getLogFile(): File? = file
+    fun getFile(): File? = file
 }
