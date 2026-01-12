@@ -22,7 +22,6 @@ class ElmConnection {
         try {
             socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
             socket?.connect()
-            socket?.soTimeout = 3000
 
             output = socket?.outputStream
             input = BufferedReader(InputStreamReader(socket?.inputStream))
@@ -45,7 +44,7 @@ class ElmConnection {
         send("ATSP0")
     }
 
-    // Сумісність зі старим кодом
+    // Сумісність з існуючим кодом
     fun send(cmd: String): String = sendCommand(cmd)
 
     private fun sendCommand(cmd: String): String {
