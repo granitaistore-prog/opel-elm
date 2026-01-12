@@ -11,16 +11,21 @@ fun MainNavHost() {
 
     NavHost(
         navController = navController,
-        startDestination = "dashboard"
+        startDestination = "scan"
     ) {
-        composable("dashboard") {
-            DashboardScreen(navController)
-        }
-        composable("can_raw") {
-            CanRawScreen(navController)
-        }
+
         composable("scan") {
-            ScanScreen(navController)
+            ScanScreen(
+                onConnected = {
+                    navController.navigate("dashboard") {
+                        popUpTo("scan") { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable("dashboard") {
+            DashboardScreen()
         }
     }
 }

@@ -1,98 +1,99 @@
-package com.granitaistore.obddiagnostic.elm
+package com.granitaistore.obddiagnostic
 
-import android.app.Application
 import android.bluetooth.BluetoothDevice
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.granitaistore.obddiagnostic.logger.CsvLogger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class ElmViewModel(app: Application) : AndroidViewModel(app) {
+sealed class ConnectionState {
+    object Disconnected : ConnectionState()
+    object Connecting : ConnectionState()
+    object Connected : ConnectionState()
+    data class Error(val message: String) : ConnectionState()
+}
 
-    private var elm: ElmConnection? = null
-    private val logger = CsvLogger(app)
+data class ObdData(
+    val rpm: Int = 0,
+    val speed: Int = 0,
+    val coolantTemp: Int = 0
+)
 
-    private val _rpm = MutableStateFlow(0)
-    val rpm = _rpm.asStateFlow()
+class ElmViewModel : ViewModel() {
 
-    private val _speed = MutableStateFlow(0)
-    val speed = _speed.asStateFlow()
+    private val elm = ElmConnection()
 
-    private val _connected = MutableStateFlow(false)
-    val connected = _connected.asStateFlow()
+    private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
+    val connectionState: StateFlow<ConnectionState> = _connectionState
+
+    private val _obdData = MutableStateFlow(ObdData())
+    val obdData: StateFlow<ObdData> = _obdData
 
     fun connect(device: BluetoothDevice) {
         viewModelScope.launch {
-            val connection = ElmConnection(device)
-            elm = connection
+            _connectionState.value = ConnectionState.Connecting
 
-            val ok = connection.connect()
-            _connected.value = ok
-
-            if (ok) {
-                logger.startSession()
-                startPolling()
-                startCanListener()
+            val success = elm.connect(device)
+            if (success) {
+                _connectionState.value = ConnectionState.Connected
+                startReadingLoop()
+            } else {
+                _connectionState.value = ConnectionState.Error("Не вдалося підключитись до ELM327")
             }
         }
     }
 
-    private fun startPolling() {
+    private fun startReadingLoop() {
         viewModelScope.launch {
-            while (_connected.value) {
+            while (true) {
                 try {
-                    val rpmValue = elm?.readRpm() ?: 0
-                    val speedValue = elm?.readSpeed() ?: 0
+                    val rpmRaw = elm.readPID("0C")
+                    val speedRaw = elm.readPID("0D")
+                    val tempRaw = elm.readPID("05")
 
-                    _rpm.value = rpmValue
-                    _speed.value = speedValue
+                    val rpm = parseRPM(rpmRaw)
+                    val speed = parseSpeed(speedRaw)
+                    val temp = parseCoolant(tempRaw)
 
-                    logger.log(
-                        ecu = "ECU",
-                        pid = "0C",
-                        value = rpmValue.toString(),
-                        unit = "rpm",
-                        raw = ""
-                    )
-
-                    logger.log(
-                        ecu = "ECU",
-                        pid = "0D",
-                        value = speedValue.toString(),
-                        unit = "km/h",
-                        raw = ""
-                    )
-                } catch (_: Exception) {
+                    _obdData.value = ObdData(rpm, speed, temp)
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
 
-                delay(500)
+                delay(1000) // оновлення раз на секунду
             }
         }
     }
 
-    private fun startCanListener() {
-        elm?.setCanListener { canId, data ->
-            logger.logCanRaw(canId, data)
-        }
+    private fun parseRPM(response: String): Int {
+        // Формат: 41 0C A B
+        val bytes = extractBytes(response)
+        if (bytes.size < 2) return 0
+        return ((bytes[0] * 256) + bytes[1]) / 4
     }
 
-    fun disconnect() {
-        viewModelScope.launch {
-            _connected.value = false
-            elm?.disconnect()
-            elm = null
-            logger.stop()
-        }
+    private fun parseSpeed(response: String): Int {
+        // Формат: 41 0D A
+        val bytes = extractBytes(response)
+        if (bytes.isEmpty()) return 0
+        return bytes[0]
     }
 
-    fun reconnect(device: BluetoothDevice) {
-        disconnect()
-        viewModelScope.launch {
-            delay(1000)
-            connect(device)
-        }
+    private fun parseCoolant(response: String): Int {
+        // Формат: 41 05 A  => A - 40
+        val bytes = extractBytes(response)
+        if (bytes.isEmpty()) return 0
+        return bytes[0] - 40
+    }
+
+    private fun extractBytes(raw: String): List<Int> {
+        return raw.replace(" ", "")
+            .chunked(2)
+            .drop(2) // прибираємо 41XX
+            .mapNotNull {
+                try { it.toInt(16) } catch (e: Exception) { null }
+            }
     }
 }
