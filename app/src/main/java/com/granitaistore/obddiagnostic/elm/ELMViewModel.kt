@@ -26,13 +26,16 @@ class ElmViewModel(app: Application) : AndroidViewModel(app) {
 
     fun connect(device: BluetoothDevice) {
         viewModelScope.launch {
-            elm = ElmConnection(device)
-            val ok = elm?.connect() ?: false
+            val connection = ElmConnection(device)
+            elm = connection
+
+            val ok = connection.connect()
             _connected.value = ok
 
             if (ok) {
+                logger.startSession()
                 startPolling()
-                startCanStream()
+                startCanListener()
             }
         }
     }
@@ -40,37 +43,39 @@ class ElmViewModel(app: Application) : AndroidViewModel(app) {
     private fun startPolling() {
         viewModelScope.launch {
             while (_connected.value) {
-                elm?.sendPid("010C") // RPM
-                delay(300)
-                elm?.sendPid("010D") // SPEED
-                delay(300)
+                try {
+                    val rpmValue = elm?.readRpm() ?: 0
+                    val speedValue = elm?.readSpeed() ?: 0
+
+                    _rpm.value = rpmValue
+                    _speed.value = speedValue
+
+                    logger.log(
+                        ecu = "ECU",
+                        pid = "0C",
+                        value = rpmValue.toString(),
+                        unit = "rpm",
+                        raw = ""
+                    )
+
+                    logger.log(
+                        ecu = "ECU",
+                        pid = "0D",
+                        value = speedValue.toString(),
+                        unit = "km/h",
+                        raw = ""
+                    )
+                } catch (_: Exception) {
+                }
+
+                delay(500)
             }
         }
     }
 
-    private fun startCanStream() {
-        viewModelScope.launch {
-            elm?.startCanStream { canId, data ->
-                parsePid(canId, data)
-                logger.log(canId, data)
-            }
-        }
-    }
-
-    private fun parsePid(id: String, data: String) {
-        val bytes = data.split(" ").mapNotNull { it.toIntOrNull(16) }
-
-        if (bytes.size < 3) return
-
-        when (bytes[1]) {
-            0x0C -> { // RPM
-                val value = ((bytes[2] shl 8) + bytes[3]) / 4
-                _rpm.value = value
-            }
-
-            0x0D -> { // SPEED
-                _speed.value = bytes[2]
-            }
+    private fun startCanListener() {
+        elm?.setCanListener { canId, data ->
+            logger.logCanRaw(canId, data)
         }
     }
 
@@ -79,6 +84,7 @@ class ElmViewModel(app: Application) : AndroidViewModel(app) {
             _connected.value = false
             elm?.disconnect()
             elm = null
+            logger.stop()
         }
     }
 
