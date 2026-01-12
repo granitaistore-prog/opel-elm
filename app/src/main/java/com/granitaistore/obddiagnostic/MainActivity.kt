@@ -9,13 +9,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.granitaistore.obddiagnostic.ui.theme.OpelElmDiagnosticTheme
+import com.granitaistore.obddiagnostic.ui.theme.AppTheme
 
 class MainActivity : ComponentActivity() {
 
-    private val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    private val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         arrayOf(
             Manifest.permission.BLUETOOTH_SCAN,
             Manifest.permission.BLUETOOTH_CONNECT
@@ -28,38 +27,34 @@ class MainActivity : ComponentActivity() {
     }
 
     private val permissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { perms ->
-            // нічого не робимо, головне що дозволи запитані
-        }
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        requestBluetoothPermissions()
-        enableBluetoothIfNeeded()
+        requestPermissions()
+        enableBluetooth()
 
         setContent {
-            OpelElmDiagnosticTheme {
+            AppTheme {
                 MainNavHost()
             }
         }
     }
 
-    private fun requestBluetoothPermissions() {
-        val notGranted = bluetoothPermissions.filter {
+    private fun requestPermissions() {
+        val missing = permissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-
-        if (notGranted.isNotEmpty()) {
-            permissionLauncher.launch(notGranted.toTypedArray())
+        if (missing.isNotEmpty()) {
+            permissionLauncher.launch(missing.toTypedArray())
         }
     }
 
-    private fun enableBluetoothIfNeeded() {
+    private fun enableBluetooth() {
         val adapter = BluetoothAdapter.getDefaultAdapter() ?: return
         if (!adapter.isEnabled) {
-            val enableIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            startActivity(enableIntent)
+            startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
         }
     }
 }
