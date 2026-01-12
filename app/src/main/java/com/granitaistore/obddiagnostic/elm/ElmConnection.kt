@@ -22,6 +22,7 @@ class ElmConnection {
         try {
             socket = device.createRfcommSocketToServiceRecord(SPP_UUID)
             socket?.connect()
+            socket?.soTimeout = 3000
 
             output = socket?.outputStream
             input = BufferedReader(InputStreamReader(socket?.inputStream))
@@ -35,34 +36,40 @@ class ElmConnection {
     }
 
     private fun initElm() {
-        sendCommand("ATZ")
-        sendCommand("ATE0")
-        sendCommand("ATL0")
-        sendCommand("ATS0")
-        sendCommand("ATH0")
-        sendCommand("ATSP0")
+        send("ATZ")
+        Thread.sleep(1200)
+        send("ATE0")
+        send("ATL0")
+        send("ATS0")
+        send("ATH0")
+        send("ATSP0")
     }
 
-    fun sendCommand(cmd: String): String {
+    // Сумісність зі старим кодом
+    fun send(cmd: String): String = sendCommand(cmd)
+
+    private fun sendCommand(cmd: String): String {
         output?.write((cmd + "\r").toByteArray())
         output?.flush()
 
-        val response = StringBuilder()
-        var line: String?
-
+        val sb = StringBuilder()
         while (true) {
-            line = input?.readLine()
-            if (line == null || line.contains(">")) break
-            response.append(line)
+            val ch = input?.read() ?: break
+            if (ch.toChar() == '>') break
+            sb.append(ch.toChar())
         }
-        return response.toString()
+        return sb.toString().replace("\r", "").trim()
     }
 
     fun readPID(pid: String): String {
-        return sendCommand("01$pid")
+        return send("01$pid")
     }
 
     fun close() {
-        try { socket?.close() } catch (_: Exception) {}
+        try {
+            input?.close()
+            output?.close()
+            socket?.close()
+        } catch (_: Exception) {}
     }
 }
