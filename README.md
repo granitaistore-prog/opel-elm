@@ -166,4 +166,4 @@ ACCESS_FINE_LOCATION
 
 MIT (for now)
 
-🚀 Made for Opel owners & car hackers
+🚀 Made for Opel owners & car hackers 
